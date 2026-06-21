@@ -24,7 +24,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      # 用 npm install（非 npm ci）：lock 檔在 Windows 產生，
+      # 缺少 Linux 原生 binary 的選擇性相依，npm ci 的嚴格比對會失敗。
+      - run: npm install --no-audit --no-fund
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
