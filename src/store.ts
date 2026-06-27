@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Course, Meeting } from './types'
 import { COURSE_COLORS } from './constants'
+import { SEED_COURSES } from './seedCourses'
 
 export interface CourseInput {
   name: string
@@ -36,7 +37,8 @@ function makeId(): string {
 export const useStore = create<ScheduleState>()(
   persist(
     (set) => ({
-      courses: [],
+      // 預設課程：第一次開啟（localStorage 沒資料）時帶入 seedCourses.ts 的內容。
+      courses: SEED_COURSES,
       hoveredCourseId: null,
       editingCourseId: null,
 
