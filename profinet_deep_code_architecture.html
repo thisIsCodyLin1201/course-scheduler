@@ -1,0 +1,3080 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Renesas PROFINET IRT SDK - 深度代碼架構</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #475569;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
+            --border: #e2e8f0;
+            --sidebar-width: 280px;
+            --sidebar-collapsed-width: 40px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+        }
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--card-bg);
+            border-right: 1px solid var(--border);
+            padding: 1.5rem;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 1000;
+            transition: width 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+        }
+        .sidebar.collapsed {
+            width: var(--sidebar-collapsed-width);
+            padding: 1.5rem 0.5rem;
+        }
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        .sidebar-header h1 {
+            font-size: 1.1rem;
+            color: var(--primary);
+            font-weight: 700;
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: opacity 0.2s;
+        }
+        .sidebar.collapsed .sidebar-header h1 {
+            opacity: 0;
+            width: 0;
+            display: none;
+        }
+        .toggle-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--primary);
+            padding: 0.6rem;
+            transform: translateY(-11px);
+            border-radius: 0.3rem;
+            transition: background 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            flex-shrink: 0;
+        }
+        .toggle-btn:hover {
+            background: #f1f5f9;
+        }
+        .toggle-btn span {
+            display: block;
+            width: 22px;
+            height: 2px;
+            background: currentColor;
+            border-radius: 1px;
+            transition: all 0.2s;
+        }
+        .sidebar h1 {
+            font-size: 1.1rem;
+            color: var(--primary);
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+        .nav-item {
+            display: block;
+            padding: 0.6rem 0.8rem;
+            color: var(--secondary);
+            text-decoration: none;
+            border-radius: 0.4rem;
+            margin-bottom: 0.3rem;
+            transition: all 0.2s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .nav-item:hover {
+            background: #f1f5f9;
+            color: var(--primary);
+        }
+        .nav-item.active {
+            background: #dbeafe;
+            color: var(--primary);
+            font-weight: 600;
+        }
+        .sidebar.collapsed .nav-item span {
+            display: none;
+        }
+        .main-content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 1.5rem 2.5rem;
+            max-width: 100%;
+            transition: margin-left 0.3s ease;
+            position: relative;
+            z-index: 1;
+            width: calc(100vw - var(--sidebar-width));
+        }
+        .sidebar.collapsed ~ .main-content {
+            margin-left: var(--sidebar-collapsed-width);
+            width: calc(100vw - var(--sidebar-collapsed-width));
+        }
+        .search-container {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+        #search-results-inline {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            max-height: 300px;
+            overflow-y: auto;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            margin-top: 0.2rem;
+        }
+        #search-results-inline .result-item {
+            margin: 0;
+            border-bottom: 1px solid var(--border);
+            padding: 0.8rem 1rem;
+            cursor: pointer;
+        }
+        #search-results-inline .result-item:last-child {
+            border-bottom: none;
+        }
+        #search-results-inline .result-item:hover {
+            background: #f1f5f9;
+        }
+        .search-input {
+            width: 100%;
+            padding: 0.8rem 1rem 0.8rem 2.5rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            background: white url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%2364748b" viewBox="0 0 16 16"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>') no-repeat 0.8rem center;
+            transition: border-color 0.2s;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        h2 {
+            font-size: 1.8rem;
+            color: var(--text);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--primary);
+            margin-top: 3rem;
+        }
+        h3 {
+            font-size: 1.3rem;
+            color: var(--text);
+            margin: 1.5rem 0 1rem;
+        }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 0.6rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .module-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .module-card {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .module-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-color: var(--primary);
+        }
+        .module-title {
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 0.3rem;
+        }
+        .module-file {
+            font-size: 0.85rem;
+            color: var(--secondary);
+            font-family: monospace;
+        }
+        .code-block {
+            background: var(--code-bg);
+            color: var(--code-text);
+            padding: 1rem;
+            border-radius: 0.4rem;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin: 1rem 0;
+        }
+        .code-line {
+            display: block;
+            padding: 0.1rem 0;
+        }
+        .code-line:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .keyword { color: #c678dd; }
+        .type { color: #e5c07b; }
+        .func { color: #61afef; }
+        .string { color: #98c379; }
+        .comment { color: #7f848e; font-style: italic; }
+        .tag {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.3rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+        .tag-core { background: #dbeafe; color: #1e40af; }
+        .tag-critical { background: #fee2e2; color: #991b1b; }
+        .tag-optimization { background: #d1fae5; color: #065f46; }
+        .mermaid-wrapper {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.6rem;
+            margin: 1.2rem 0;
+            position: relative;
+            min-height: 300px;
+            overflow: auto;
+            padding: 1rem;
+        }
+        .mermaid-controls {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.4rem;
+            padding: 0.3rem;
+            display: flex;
+            gap: 0.2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+        .mermaid-controls button {
+            background: #f1f5f9;
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 0.3rem;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #475569;
+            transition: background 0.2s;
+        }
+        .mermaid-controls button:hover {
+            background: #e2e8f0;
+        }
+        .mermaid-scale-display {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            background: rgba(255,255,255,0.9);
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.3rem;
+            font-size: 0.75rem;
+            color: #64748b;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .mermaid-container {
+            width: 100%;
+            height: auto;
+            overflow: visible;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+        .mermaid-container 
+        .mermaid-container .mermaid:active {
+            cursor: grabbing;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            background: white;
+        }
+        th, td {
+            padding: 0.8rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: var(--secondary);
+        }
+        tr:hover {
+            background: #f8fafc;
+        }
+        .file-path {
+            font-family: monospace;
+            background: #f1f5f9;
+            padding: 0.3rem 0.6rem;
+            border-radius: 0.3rem;
+            font-size: 0.85rem;
+            color: var(--secondary);
+            margin: 0.5rem 0;
+            display: inline-block;
+        }
+        .result-item {
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.8rem;
+        }
+        .result-title {
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 0.3rem;
+        }
+        .result-file {
+            font-size: 0.85rem;
+            color: var(--secondary);
+            font-family: monospace;
+            margin-bottom: 0.5rem;
+        }
+        .result-content {
+            color: var(--text);
+            font-size: 0.95rem;
+        }
+        .hidden { display: none; }
+    
+    
+    
+
+    
+    
+
+
+    
+
+
+    
+
+
+    
+
+
+    
+    /* 圖表 3-7 保持預設大小（無需額外 CSS） */
+    #mermaid-3 .mermaid-container,
+    #mermaid-4 .mermaid-container,
+    #mermaid-5 .mermaid-container,
+    #mermaid-6 .mermaid-container,
+    
+
+
+    
+    .mermaid svg {
+        min-width: 600px !important;
+        min-height: 300px !important;
+        width: auto !important;
+        height: auto !important;
+    }
+    
+    #mermaid-3 .mermaid svg,
+    #mermaid-4 .mermaid svg,
+    #mermaid-5 .mermaid svg,
+    #mermaid-6 .mermaid svg,
+    
+    
+    #mermaid-1 .mermaid svg,
+    
+
+
+    /* 基本容器樣式（不干涉 Mermaid 渲染） */
+    .mermaid-container {
+        overflow: auto !important;
+        position: relative;
+    }
+    .mermaid {
+        text-align: center;
+    }
+    .mermaid svg {
+        max-width: 100%;
+        height: auto;
+    }
+
+
+    /* 確保容器可以滾動和拖動 */
+    .mermaid-wrapper {
+        overflow: auto !important;
+        position: relative;
+        width: 100%;
+    }
+    .mermaid-container {
+        overflow: auto !important;
+        position: relative;
+        min-width: 100%;
+        min-height: 300px;
+    }
+    .mermaid svg {
+        max-width: none !important;
+        width: auto !important;
+        height: auto !important;
+        display: block;
+    }
+    /* 圖表 1-2：縮小間距 */
+    #mermaid-1 .mermaid,
+    #mermaid-2 .mermaid {
+        font-size: 12px !important;
+    }
+    /* 圖表 7：放大間距 */
+    #mermaid-7 .mermaid {
+        font-size: 16px !important;
+    }
+
+</style>
+</head>
+<body>
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h1>PROFINET SDK</h1>
+            <button class="toggle-btn" id="toggleBtn" title="收合/展開">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+        <a href="#modules" class="nav-item active"><span>核心模組識別</span></a>
+        <a href="#code-deep-dive" class="nav-item"><span>程式深度剖析</span></a>
+        <a href="#data-flow" class="nav-item"><span>資料流程圖表</span></a>
+    </nav>
+
+    <main class="main-content">
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchInput" placeholder="搜尋功能（例如：初始化、shared memory、警報、boot sequence）...">
+            <div id="search-results-inline"></div>
+        </div>
+
+        <!-- 板塊一：核心模組識別 -->
+        <section id="modules">
+            <h2>AI 自主研判 - 核心功能模組與檔案清單</h2>
+            <p class="card">基於 PROFINET SDK 原始碼深度分析，識別出以下核心功能模組，涵蓋 PROFINET 協議棧的關鍵功能：初始化、任務調度、DMA 控制、事件管理、RTA 通訊、DCP 配置、警報處理。</p>
+            
+            <div class="module-grid">
+                <div class="module-card" onclick="document.getElementById('module-1').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">1. PNDV (Device View)</div>
+                    <div class="module-file">pndv_ar.c, pndv_al.c</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">設備視角管理：AR 生命週期、警報處理、配置數據</div>
+                </div>
+                <div class="module-card" onclick="document.getElementById('module-2').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">2. TSKMA (Task Management)</div>
+                    <div class="module-file">tskma.c, tskma_pdb.c, tskma_task_app.c</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">任務管理：11 個核心任務、冷啟動序列、RQB 分配</div>
+                </div>
+                <div class="module-card" onclick="document.getElementById('module-3').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">3. GDMA (DMA Control)</div>
+                    <div class="module-file">gdma.c, gdma_com.h, gdma_int.h</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">DMA 控制：轉移描述符、硬體流觸發、中斷回調</div>
+                </div>
+                <div class="module-card" onclick="document.getElementById('module-4').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">4. EVMA (Event Management)</div>
+                    <div class="module-file">evma.c, evma_com.h, evma_int.h</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">事件管理：PNPLL 計時器、比較器、中斷回調列表</div>
+                </div>
+                <div class="module-card" onclick="document.getElementById('module-5').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">5. ACP_RTA (RTA Protocol)</div>
+                    <div class="module-file">acp_rta.c, acp_nrt.c</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">RTA 通訊：狀態機、序列號、警報確認機制</div>
+                </div>
+                <div class="module-card" onclick="document.getElementById('module-6').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">6. CM_DCP (Discovery Protocol)</div>
+                    <div class="module-file">cm_dcp.c, cm_dcp1.c</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">DCP 協議：發現與配置、Identify 資源、GET/SET 服務</div>
+                </div>
+                <div class="module-card" onclick="document.getElementById('module-7').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">7. EDDP (Data Path)</div>
+                    <div class="module-file">eddp_core_sm.c, eddp_cmd.c, eddp_core_dev.c</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">數據路徑：狀態機、LL 接口、非實時發送</div>
+                </div>
+                <div class="module-card" onclick="document.getElementById('module-8').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">8. ACP_LL (Low Layer)</div>
+                    <div class="module-file">acp_low.h, acp_usr.h</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">底層接口：RQB 結構、MAC 過濾、緩衝區管理</div>
+                </div>
+                <div class="module-card" onclick="document.getElementById('module-9').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">9. CM_AR (AR 管理)</div>
+                    <div class="module-file">cm_arsm.c, cm_ar.c</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">AR 管理：AR 狀態機、CR 建立、數據交換、關閉流程</div>
+                </div>
+                <div class="module-card" onclick="document.getElementById('module-10').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">10. CM_AL (警報管理)</div>
+                    <div class="module-file">acp_al.c, acp_alarm.h</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">警報處理：警報分配、狀態轉換、優先級管理、資源提供/關閉</div>
+                </div>
+                <div class="module-card" onclick="document.getElementById('module-11').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">11. PN-PB Core (協議核心)</div>
+                    <div class="module-file">usriod_main.c, iodapi_event.c</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">協議基礎：PB 狀態機、參數化、組態數據（EK52 應用層）</div>
+                </div>
+                <div class="module-card" onclick="document.getElementById('module-12').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">12. IOM (IO Manager)</div>
+                    <div class="module-file">iom_interface.c, iom_cfg.h</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">IO 管理：模組管理、IO 數據緩衝、診斷整合</div>
+                </div>
+                <div class="module-card" onclick="document.getElementById('module-13').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">13. PnUsr (應用層 API)</div>
+                    <div class="module-file">PnUsr_SharedMemory.c, PnUsr_SharedMemory.h</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">應用層介面：共享記憶體、設備數據存取、API 封裝</div>
+                </div>
+                <div class="module-card" onclick="document.getElementById('module-14').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">14. EDDP-PNS (硬體加速)</div>
+                    <div class="module-file">eddp_k32.c, eddp_llif.c</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">硬體加速：副核 K32 實作、低層介面、數據路徑優化</div>
+                </div>
+                <div class="module-card" onclick="document.getElementById('module-15').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">15. gPTP/RSync (時間同步)</div>
+                    <div class="module-file">gptp.c, bmc.c, RSync/</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">時間同步：IEEE 1588 PTP、最佳主時鐘 BMC、微秒級同步</div>
+                </div>
+                <div class="module-card" onclick="document.getElementById('module-16').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">16. Storm Protection (網路防護)</div>
+                    <div class="module-file">storm_protection.c</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">網路安全：流量監控、異常封包過濾、風暴防護</div>
+                </div>
+                <div class="module-card" onclick="document.getElementById('module-17').scrollIntoView({behavior: 'smooth'})">
+                    <div class="module-title">17. GSDML (設備描述)</div>
+                    <div class="module-file">GSDML-V2.44-RENESAS-*.xml</div>
+                    <div style="font-size:0.85rem;color:#64748b;margin-top:0.3rem;">設備描述：GSDML XML 檔案、模組定義、主站識別</div>
+                </div>
+            </div>
+
+            <h3>核心檔案路徑清單</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>模組</th>
+                        <th>核心檔案</th>
+                        <th>功能描述</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>PNDV</strong></td>
+                        <td class="file-path">src/ext/EK52/pn_ioddevkits/src/source/pndv/src/pndv_ar.c</td>
+                        <td>AR 狀態機、警報處理、設備視角數據管理</td>
+                    </tr>
+                    <tr>
+                        <td><strong>TSKMA</strong></td>
+                        <td class="file-path">src/ext/EK52/pn_ioddevkits/src/source/tskma/src/tskma.c</td>
+                        <td>11 個核心任務初始化、冷啟動序列、RQB 分配</td>
+                    </tr>
+                    <tr>
+                        <td><strong>GDMA</strong></td>
+                        <td class="file-path">src/ext/EK52/pn_ioddevkits/src/source/gdma/src/gdma.c</td>
+                        <td>GDMA 中斷服務、轉移描述符、硬體流觸發</td>
+                    </tr>
+                    <tr>
+                        <td><strong>EVMA</strong></td>
+                        <td class="file-path">src/ext/EK52/pn_ioddevkits/src/source/evma/src/evma.c</td>
+                        <td>PNPLL 計時器、比較器、中斷回調列表</td>
+                    </tr>
+                    <tr>
+                        <td><strong>ACP_RTA</strong></td>
+                        <td class="file-path">src/ext/EK52/pn_run/src/acp/src/src/acp_rta.c</td>
+                        <td>RTA 狀態機、序列號管理、警報確認</td>
+                    </tr>
+                    <tr>
+                        <td><strong>CM_DCP</strong></td>
+                        <td class="file-path">src/ext/EK52/pn_run/src/cm/src/src/cm_dcp.c</td>
+                        <td>DCP 協議、Identify 資源、GET/SET 服務</td>
+                    </tr>
+                    <tr>
+                        <td><strong>EDDP</strong></td>
+                        <td class="file-path">src/ext/EK52/pn_run/src/eddp/src/core/eddp_core_sm.c</td>
+                        <td>EDDP 狀態機、LL 接口、非實時發送</td>
+                    </tr>
+                    <tr>
+                        <td><strong>ACP_LL</strong></td>
+                        <td class="file-path">src/ext/EK52/pn_run/src/acp/src/common/acp_low.h</td>
+                        <td>RQB 結構定義、MAC 過濾、緩衝區管理</td>
+                    </tr>
+                    <tr>
+                        <td><strong>CM_AR</strong></td>
+                        <td class="file-path">src/ext/EK52/pn_run/src/cm/src/src/cm_arsm.c</td>
+                        <td>AR 管理：AR 狀態機、CR 建立、數據交換、關閉流程</td>
+                    </tr>
+                    <tr>
+                        <td><strong>App Common</strong></td>
+                        <td class="file-path">src/ext/EK52/pn_ioddevkits/src/source/tskma/src/tskma_task_app.c</td>
+                        <td>應用通用：任務應用邏輯、數據交換、用戶 I/O 處理（EK52 特定）</td>
+                    </tr>
+                    <tr>
+                        <td><strong>PN-PB Core</strong></td>
+                        <td class="file-path">src/ext/EK52/pn_ioddevkits/src/application/App1_STANDARD/iodapi_event.c</td>
+                        <td>協議基礎：PB 狀態機、參數化、組態數據（EK52 應用層）</td>
+                    </tr>
+                    <tr>
+                        <td><strong>IOM</strong></td>
+                        <td class="file-path">src/ext/EK52/pn_ioddevkits/src/source/iom/src/iom_interface.c</td>
+                        <td>IO 管理：模組管理、IO 數據緩衝、診斷整合</td>
+                    </tr>
+                    <tr>
+                        <td><strong>PnUsr</strong></td>
+                        <td class="file-path">src/pns/app/PnUsr_SharedMemory.c</td>
+                        <td>應用層 API：共享記憶體管理、設備數據存取</td>
+                    </tr>
+                    <tr>
+                        <td><strong>EDDP-PNS</strong></td>
+                        <td class="file-path">src/pns/eddp/eddp_k32.c</td>
+                        <td>硬體加速：副核 K32 實作、數據路徑優化</td>
+                    </tr>
+                    <tr>
+                        <td><strong>gPTP/RSync</strong></td>
+                        <td class="file-path">src/pns/RSync/ptp1as/gptp.c</td>
+                        <td>時間同步：IEEE 1588 PTP、最佳主時鐘 BMC</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Storm Protection</strong></td>
+                        <td class="file-path">src/pns/eddp/Custom/storm_protection/storm_protection.c</td>
+                        <td>網路安全：流量監控、異常封包過濾</td>
+                    </tr>
+                    <tr>
+                        <td><strong>GSDML</strong></td>
+                        <td class="file-path">src/pns/gsdml/GSDML-V2.44-RENESAS-RZT2-VSC8541-20260116.xml</td>
+                        <td>設備描述：GSDML XML 檔案、模組定義</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3>2. TSKMA: 任務管理</h3>
+                <div class="file-path">src/ext/EK52/pn_ioddevkits/src/source/tskma/src/tskma.c</div>
+                <p><strong>核心邏輯：</strong>TSKMA 管理 PROFINET 協議棧的 11 個核心任務。負責任務初始化、優先級設定、堆疊大小配置，以及冷啟動序列控制。</p>
+                
+                <h4>關鍵代碼片段：任務初始化 (tskma_init)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">LSA_VOID</span> <span class="func">tskma_init</span>()</span>
+<span class="code-line">{</span>
+<span class="code-line">    <span class="type">LSA_UINT32</span> taskID;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 1. 重置所有任務計數器（除錯用）</span></span>
+<span class="code-line"><span class="keyword">#if</span> DEBUG_TASKCNT</span>
+<span class="code-line">    <span class="keyword">for</span> (taskID = 0; taskID < MAXNUM_OF_TASKS; taskID++) {</span>
+<span class="code-line">        TaskCnt[taskID] = 0;</span>
+<span class="code-line">    }</span>
+<span class="code-line"><span class="keyword">#endif</span></span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 2. 清空所有數據結構</span></span>
+<span class="code-line">    TSKMA_MEMSET(Andtskma_data, 0, <span class="keyword">sizeof</span>(tskma_data));</span>
+<span class="code-line">    TSKMA_MEMSET(Andtskma_com_data, 0, <span class="keyword">sizeof</span>(tskma_com_data));</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 3. 初始化錯誤計數器</span></span>
+<span class="code-line">    tskma_parity_error_count  = 0;</span>
+<span class="code-line">    tskma_access_error_count  = 0;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 4. 設定 11 個任務的指針</span></span>
+<span class="code-line">    tskma_com_data.task_info[TSKMA_TASK_NUM_APP].task_ptr  = tskma_task_app;</span>
+<span class="code-line">    tskma_com_data.task_info[TSKMA_TASK_NUM_RBT].task_ptr  = tskma_task_rbt;</span>
+<span class="code-line">    tskma_com_data.task_info[TSKMA_TASK_NUM_PSI].task_ptr  = tskma_task_psi;</span>
+<span class="code-line">    tskma_com_data.task_info[TSKMA_TASK_NUM_LD].task_ptr   = tskma_task_ld;</span>
+<span class="code-line">    tskma_com_data.task_info[TSKMA_TASK_NUM_HD].task_ptr   = tskma_task_hd;</span>
+<span class="code-line">    tskma_com_data.task_info[TSKMA_TASK_NUM_ORG].task_ptr  = tskma_task_org;</span>
+<span class="code-line">    tskma_com_data.task_info[TSKMA_TASK_NUM_POF].task_ptr  = tskma_task_pof;</span>
+<span class="code-line">    tskma_com_data.task_info[TSKMA_TASK_NUM_EDDP].task_ptr = tskma_task_eddp;</span>
+<span class="code-line">    tskma_com_data.task_info[TSKMA_TASK_NUM_PNO].task_ptr  = tskma_task_pno;</span>
+<span class="code-line">    tskma_com_data.task_info[TSKMA_TASK_NUM_STP].task_ptr  = tskma_task_stp;</span>
+<span class="code-line">    tskma_com_data.task_info[TSKMA_TASK_NUM_IDL].task_ptr  = tskma_task_idl;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 5. 設定任務優先級</span></span>
+<span class="code-line">    tskma_com_data.task_info[TSKMA_TASK_NUM_APP].task_prio  = TSKMA_TASK_PRIO_APP;</span>
+<span class="code-line">    tskma_com_data.task_info[TSKMA_TASK_NUM_RBT].task_prio  = TSKMA_TASK_PRIO_RBT;</span>
+<span class="code-line">    tskma_com_data.task_info[TSKMA_TASK_NUM_PSI].task_prio  = TSKMA_TASK_PRIO_PSI;</span>
+<span class="code-line">    <span class="comment">// ... 其他任務優先級</span></span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 6. 設定任務堆疊大小</span></span>
+<span class="code-line">    tskma_com_data.task_info[TSKMA_TASK_NUM_APP].task_stack_size  = TSKMA_TASK_STACKSIZE_APP;</span>
+<span class="code-line">    tskma_com_data.task_info[TSKMA_TASK_NUM_RBT].task_stack_size  = TSKMA_TASK_STACKSIZE_RBT;</span>
+<span class="code-line">    <span class="comment">// ... 其他任務堆疊大小</span></span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>關鍵代碼片段：任務啟動 (tskma_open)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">LSA_UINT32</span> <span class="func">tskma_open</span>()</span>
+<span class="code-line">{</span>
+<span class="code-line">    <span class="type">LSA_UINT32</span> ret_val;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 1. 準備靜態 RQB</span></span>
+<span class="code-line">    TSKMA_RQB_SET_REQ_FCT_PTR(Andtskma_data.app.rqb.trigger_pndv_to_pnpb, tskma_task_app_request);</span>
+<span class="code-line">    TSKMA_RQB_SET_OPCODE(Andtskma_data.app.rqb.trigger_pndv_to_pnpb, TSKMA_OPC_APP_TRIGGER_PNPB);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 2. 設定冷啟動標記</span></span>
+<span class="code-line">    tskma_data.cold_start.done = LSA_FALSE;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 3. 創建 IDLE 任務（所有啟動工作在此完成）</span></span>
+<span class="code-line">    TSKMA_OS_TASK_CREATE(</span>
+<span class="code-line">        tskma_com_data.task_info[TSKMA_TASK_NUM_IDL].task_ptr,</span>
+<span class="code-line">        tskma_com_data.task_info[TSKMA_TASK_NUM_IDL].task_prio,</span>
+<span class="code-line">        Andtskma_com_data.task_info[TSKMA_TASK_NUM_IDL].task_id,</span>
+<span class="code-line">        tskma_com_data.task_info[TSKMA_TASK_NUM_IDL].task_name_ptr,</span>
+<span class="code-line">        tskma_com_data.task_info[TSKMA_TASK_NUM_IDL].task_stack_size,</span>
+<span class="code-line">        Andret_val</span>
+<span class="code-line">    );</span>
+<span class="code-line">    TSKMA_CHECK_FATAL(ret_val);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 4. 啟動 IDLE 任務</span></span>
+<span class="code-line">    TSKMA_OS_TASK_START(</span>
+<span class="code-line">        tskma_com_data.task_info[TSKMA_TASK_NUM_IDL].task_id,</span>
+<span class="code-line">        Andret_val</span>
+<span class="code-line">    );</span>
+<span class="code-line">    </span>
+<span class="code-line">    TSKMA_OPEN_DONE();</span>
+<span class="code-line">    <span class="keyword">return</span> TSKMA_RET_OK;</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>11 個核心任務</h4>
+                <div class="code-block">
+<span class="code-line">APP   <span class="comment">- 應用層任務</span></span>
+<span class="code-line">RBT   <span class="comment">- 重傳任務</span></span>
+<span class="code-line">PSI   <span class="comment">- 協議狀態機任務</span></span>
+<span class="code-line">LD    <span class="comment">- 低優先級數據任務</span></span>
+<span class="code-line">HD    <span class="comment">- 高優先級數據任務</span></span>
+<span class="code-line">ORG   <span class="comment">- 組織任務</span></span>
+<span class="code-line">POF   <span class="comment">- 協議故障處理任務</span></span>
+<span class="code-line">EDDP  <span class="comment">- 週期數據交換任務</span></span>
+<span class="code-line">PNO   <span class="comment">- 非週期任務</span></span>
+<span class="code-line">STP   <span class="comment">- 生成樹協議任務</span></span>
+<span class="code-line">IDL   <span class="comment">- 空閒任務（啟動入口）</span></span>
+                </div>
+            </div>
+
+            <div class="card" id="module-3">
+                <h3>3. GDMA: 硬體 DMA 控制</h3>
+                <div class="file-path">src/ext/EK52/pn_ioddevkits/src/source/gdma/src/gdma.c</div>
+                <p><strong>核心邏輯：</strong>GDMA 模組管理硬體 DMA 轉移，支援多個任務池（job pools）、軟體/硬體觸發，以及中斷完成回調。核心功能是 `gdma_isr` 中斷服務常式。</p>
+                
+                <h4>關鍵代碼片段：中斷服務常式 (gdma_isr)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">GDMA_ATTRIBUTE_ITCM</span> <span class="keyword">static</span> <span class="type">LSA_VOID</span> <span class="func">gdma_isr</span>()</span>
+<span class="code-line">{</span>
+<span class="code-line">    <span class="type">LSA_UINT8</span> irq_source;</span>
+<span class="code-line"><span class="keyword">#if</span> (PNIOD_PLATFORM And PNIOD_PLATFORM_ECOS_EB200P)</span>
+<span class="code-line">    <span class="keyword">while</span> (*GDMA_IRQ_STATUS) {</span>
+<span class="code-line">        irq_source = 0;</span>
+<span class="code-line">        </span>
+<span class="code-line">        <span class="comment">// 1. 搜尋中斷來源</span></span>
+<span class="code-line">        <span class="keyword">while</span> (irq_source < 32) {</span>
+<span class="code-line">            <span class="keyword">while</span> (((*GDMA_IRQ_STATUS And (1 << irq_source)) == 0) AndAnd (irq_source < 32)) {</span>
+<span class="code-line">                irq_source++;</span>
+<span class="code-line">            }</span>
+<span class="code-line">            </span>
+<span class="code-line">            <span class="keyword">if</span> (irq_source < 32) {</span>
+<span class="code-line">                <span class="keyword">if</span> ((*GDMA_IRQ_STATUS And (1 << irq_source)) != 0) {</span>
+<span class="code-line">                    <span class="comment">// 2. 確認中斷（在呼叫回調之前）</span></span>
+<span class="code-line">                    *GDMA_IRQ_STATUS = (1 << irq_source);</span>
+<span class="code-line">                    </span>
+<span class="code-line">                    <span class="comment">// 3. 呼叫註冊的中斷回調</span></span>
+<span class="code-line">                    <span class="keyword">if</span> (gdma_data.gdma_job_done_callbacks[</span>
+<span class="code-line">                            gdma_data.gdma_active_job_pool_idx][irq_source]) {</span>
+<span class="code-line">                        gdma_data.gdma_job_done_callbacks[</span>
+<span class="code-line">                            gdma_data.gdma_active_job_pool_idx][irq_source](</span>
+<span class="code-line">                            gdma_data.gdma_active_job_pool_idx * GDMA_MAX_JOBS + irq_source,</span>
+<span class="code-line">                            gdma_data.gdma_callback_args[gdma_data.gdma_active_job_pool_idx][irq_source]</span>
+<span class="code-line">                        );</span>
+<span class="code-line">                    }</span>
+<span class="code-line">                }</span>
+<span class="code-line">                irq_source++;</span>
+<span class="code-line">            }</span>
+<span class="code-line">        }</span>
+<span class="code-line">    }</span>
+<span class="code-line"><span class="keyword">#endif</span></span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>關鍵代碼片段：任務檢查 (gdma_is_job_allocated)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">GDMA_ATTRIBUTE_ITCM</span> <span class="type">LSA_BOOL</span> <span class="func">gdma_is_job_allocated</span>(<span class="type">LSA_INT16</span> job_num)</span>
+<span class="code-line">{</span>
+<span class="code-line">    <span class="type">LSA_UINT16</span> job_pool_index = job_num / GDMA_MAX_JOBS;</span>
+<span class="code-line">    </span>
+<span class="code-line">    job_num = job_num % GDMA_MAX_JOBS;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="keyword">if</span> (job_pool_index >= GDMA_CFG_NUM_JOB_LISTS) {</span>
+<span class="code-line">        <span class="keyword">return</span> LSA_FALSE;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 檢查位元映射，判斷任務是否已分配</span></span>
+<span class="code-line">    <span class="keyword">if</span> ((gdma_data.gdma_used_jobs_map[job_pool_index][job_num >> 5]</span>
+<span class="code-line">         And (1 << (job_num % 32))) != 0) {</span>
+<span class="code-line">        <span class="keyword">return</span> LSA_TRUE;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="keyword">return</span> LSA_FALSE;</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>核心功能</h4>
+                <div class="code-block">
+<span class="code-line">1. 多任務池管理（Job Pools）</span>
+<span class="code-line">2. 軟體/硬體觸發 DMA 轉移</span>
+<span class="code-line">3. 中斷服務常式（ISR）處理完成事件</span>
+<span class="code-line">4. 回調機制通知應用層</span>
+<span class="code-line">5. 任務狀態追蹤（已分配/已啟用/已停用）</span>
+                </div>
+            </div>
+
+            <div class="card" id="module-4">
+                <h3>4. EVMA: 事件管理 (PNPLL 計時器)</h3>
+                <div class="file-path">src/ext/EK52/pn_ioddevkits/src/source/evma/src/evma.c</div>
+                <p><strong>核心邏輯：</strong>EVMA 管理 ERTEC200+ 的 PNPLL (PROFINET PLL) 計時器和比較器，支援多個中斷向量回調，用於精確的時間觸發操作（IRT 週期同步）。</p>
+                
+                <h4>關鍵代碼片段：回調執行宏 (EVMA_EXECUTE_ALL_CALLBACKS)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="comment">/* 執行指定中斷向量的所有回調函式 */</span></span>
+<span class="code-line"><span class="keyword">#define</span> EVMA_EXECUTE_ALL_CALLBACKS(irq_index)                                   </span>
+<span class="code-line">                    {                                                           </span>
+<span class="code-line">                        <span class="keyword">struct</span> evma_list_cb *list_ptr = Andevma_callback_lists[irq_index];</span>
+<span class="code-line">                        <span class="keyword">struct</span> evma_list_cb *cur_callback_elem_ptr;             </span>
+<span class="code-line">                        evma_get_blk_from_list__(list_ptr, Andcur_callback_elem_ptr);  </span>
+<span class="code-line">                        <span class="keyword">while</span>(cur_callback_elem_ptr != list_ptr)                </span>
+<span class="code-line">                        {                                                       </span>
+<span class="code-line">                            ((evma_callback_descriptor_t*)cur_callback_elem_ptr)->callback();</span>
+<span class="code-line">                            evma_get_blk_from_list__(cur_callback_elem_ptr, Andcur_callback_elem_ptr);</span>
+<span class="code-line">                        }                                                       </span>
+<span class="code-line">                    }</span>
+                </div>
+                
+                <h4>核心功能</h4>
+                <div class="code-block">
+<span class="code-line">1. PNPLL 比較器管理（最多 EVMA_NUM_COMPARATORS 個）</span>
+<span class="code-line">2. 多個中斷向量回調註冊（EVMA_NUM_ISR_VECTORS）</span>
+<span class="code-line">3. 鏈表式回調管理</span>
+<span class="code-line">4. ITCM/DTCM 優化（實時性能）</span>
+                </div>
+            </div>
+
+            <div class="card" id="module-5">
+                <h3>5. ACP_RTA: 警報實時協議</h3>
+                <div class="file-path">src/ext/EK52/pn_run/src/acp/src/src/acp_rta.c</div>
+                <p><strong>核心邏輯：</strong>ACP_RTA 實現 IEC 61158/61784 定義的 RTA (Real-Time Application) 警報協議，管理警報通知、確認、序列號同步和超時重傳。</p>
+                
+                <h4>關鍵代碼片段：狀態機初始化 (acp_rta_sm_init)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">LSA_VOID</span></span>
+<span class="code-line"><span class="func">acp_rta_sm_init</span>(</span>
+<span class="code-line">    <span class="type">ACP_RTA_SM_PTR</span> rtasm,</span>
+<span class="code-line">    <span class="type">ACP_LOCAL_ALARM_PTR</span> alarm,</span>
+<span class="code-line">    <span class="type">LSA_UINT8</span> prio</span>
+<span class="code-line">) {</span>
+<span class="code-line">    rtasm->alarm = alarm;</span>
+<span class="code-line">    rtasm->prio = prio;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 1. 初始化發送序列號 (IEC 61156 Part 6)</span></span>
+<span class="code-line">    rtasm->tx_seq_num = ACP_RTA_SQN_START_SND;   <span class="comment">// First seq-num to send</span></span>
+<span class="code-line">    rtasm->tx_seq_numO = ACP_RTA_SQN_START_ACK;  <span class="comment">// First Ack-seq-num to send</span></span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 2. 初始化接收序列號</span></span>
+<span class="code-line">    rtasm->rx_seq_num = ACP_RTA_SQN_START_SND;   <span class="comment">// Awaited send-seq-num</span></span>
+<span class="code-line">    rtasm->rx_seq_numO = ACP_RTA_SQN_START_ACK;  <span class="comment">// Awaited Ack-seq-num</span></span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 3. 初始化狀態和鏈表</span></span>
+<span class="code-line">    rtasm->upper = LSA_NULL;</span>
+<span class="code-line">    rtasm->provided_once = LSA_FALSE;</span>
+<span class="code-line">    AcpListInitialize(Andrtasm->lower_list);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 4. 初始化超時計時器</span></span>
+<span class="code-line">    rtasm->wf_ack = 0;</span>
+<span class="code-line">    rtasm->wf_timeout = 0;</span>
+<span class="code-line">    rtasm->retry = 0;</span>
+<span class="code-line">    acp_oneshot_init(Andrtasm->oneshot_timer, acp_rta_sm_timeout, rtasm);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 5. 設置初始狀態為 OPEN</span></span>
+<span class="code-line">    rtasm->state = ACP_RTA_ST_OPEN;</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>關鍵代碼片段：狀態機停止 (acp_rta_sm_stop)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">LSA_VOID</span></span>
+<span class="code-line"><span class="func">acp_rta_sm_stop</span>(</span>
+<span class="code-line">    <span class="type">ACP_CHANNEL_CONST_PTR</span> channel,</span>
+<span class="code-line">    <span class="type">ACP_RTA_SM_PTR</span> rtasm</span>
+<span class="code-line">) {</span>
+<span class="code-line">    <span class="type">ACP_LOCAL_ALARM_PTR</span> alarm = rtasm->alarm;</span>
+<span class="code-line">    </span>
+<span class="code-line">    ACP_RTA_TRACE_04(channel->trace_idx, LSA_TRACE_LEVEL_CHAT</span>
+<span class="code-line">        , <span class="string">"acp_rta_sm_stop: aref(%u/%u) on_closing(%d) wf_ack(%d)"</span></span>
+<span class="code-line">        , alarm->alarm_ref</span>
+<span class="code-line">        , rtasm->prio</span>
+<span class="code-line">        , alarm->on_closing</span>
+<span class="code-line">        , rtasm->wf_ack</span>
+<span class="code-line">        );</span>
+<span class="code-line">    </span>
+<span class="code-line">    acp_oneshot_stop(Andrtasm->oneshot_timer);</span>
+<span class="code-line">    rtasm->wf_ack = 0;</span>
+<span class="code-line">    rtasm->wf_timeout = 0;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 2. 從發送隊列中移除（如果正在等待發送）</span></span>
+<span class="code-line">    <span class="keyword">if</span> (rtasm->state == ACP_RTA_ST_DATA_Q || rtasm->state == ACP_RTA_ST_ACK_Q) {</span>
+<span class="code-line">        AcpListRemoveEntry(Andrtasm->link);</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 3. 清空發送隊列並取消所有待處理請求</span></span>
+<span class="code-line">    <span class="keyword">while</span> (!AcpListIsEmpty(Andalarm->send_list[rtasm->prio])) {</span>
+<span class="code-line">        <span class="type">ACP_UPPER_RQB_PTR_TYPE</span> rb;</span>
+<span class="code-line">        AcpListRemoveHead(Andalarm->send_list[rtasm->prio], rb, <span class="type">ACP_UPPER_RQB_PTR_TYPE</span>);</span>
+<span class="code-line">        acp_callback(channel, ACP_OK_CANCEL, rb);</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 4. 清空下層接收隊列</span></span>
+<span class="code-line">    <span class="keyword">while</span> (!AcpListIsEmpty(Andrtasm->lower_list)) {</span>
+<span class="code-line">        <span class="type">ACP_LOWER_RQB_PTR_TYPE</span> nrt;</span>
+<span class="code-line">        AcpListRemoveHead(Andrtasm->lower_list, nrt, <span class="type">ACP_LOWER_RQB_PTR_TYPE</span>);</span>
+<span class="code-line">        acp_nrt_recv_provide(channel->u.usr.lower, nrt);</span>
+<span class="code-line">    }</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>RTA 協議 PDU 結構 (IEC 61156 Part 6)</h4>
+                <div class="code-block">
+<span class="code-line">AlarmNotification-PDU ::</span>
+<span class="code-line">    BlockHeader {</span>
+<span class="code-line">        BlockType(u16), BlockLength(u16), BlockVersionHigh(u8), BlockVersionLow(u8)</span>
+<span class="code-line">    },</span>
+<span class="code-line">    AlarmType(u16), API(u32), SlotNumber(u16), SubslotNumber(u16),</span>
+<span class="code-line">    ModuleIdentNumber(u32), SubmoduleIdentNumber(u32), AlarmSpecifier(u16),</span>
+<span class="code-line">    [AlarmItem { UserStructureIdentifier(u16), Data(*) }]</span>
+<span class="code-line"></span>
+<span class="code-line">AlarmAck-PDU ::</span>
+<span class="code-line">    BlockHeader,</span>
+<span class="code-line">    AlarmType(u16), API(u32), SlotNumber(u16), SubslotNumber(u16),</span>
+<span class="code-line">    AlarmSpecifier(u16), PNIOStatus</span>
+                </div>
+                
+                <h4>核心常量</h4>
+                <div class="code-block">
+<span class="code-line">ACP_ALARM_BLOCK_VERSION = 0x0100</span>
+<span class="code-line">ACP_ALARM_BLOCK_REQUEST_HIGH = 0x0001</span>
+<span class="code-line">ACP_ALARM_BLOCK_REQUEST_LOW = 0x0002</span>
+<span class="code-line">ACP_ALARM_BLOCK_ACK_HIGH = 0x8001</span>
+<span class="code-line">ACP_ALARM_BLOCK_ACK_LOW = 0x8002</span>
+<span class="code-line">ACP_RTA_SQN_START_SND = 1</span>
+<span class="code-line">ACP_RTA_SQN_START_ACK = 1</span>
+                </div>
+            </div>
+
+            <div class="card" id="module-6">
+                <h3>6. CM_DCP: 發現與配置協議</h3>
+                <div class="file-path">src/ext/EK52/pn_run/src/cm/src/src/cm_dcp.c</div>
+                <p><strong>核心邏輯：</strong>CM_DCP 實現 IEC 61158-6 定義的 DCP (Discovery and Configuration Protocol)，處理設備發現、識別、GET/SET 服務和過濾器管理。</p>
+                
+                <h4>關鍵代碼片段：DCP 初始化 (cm_dcp_HDB_DCP_init)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">LSA_VOID</span> <span class="func">cm_dcp_HDB_DCP_init</span>(</span>
+<span class="code-line">    <span class="type">CM_CHANNEL_PTR_TYPE</span> channel,</span>
+<span class="code-line">    <span class="type">OHA_DB_IF_PTR_TYPE</span> pDB</span>
+<span class="code-line">) {</span>
+<span class="code-line">    <span class="type">OHA_HDB_DCP_PTR_TYPE</span> pHDB = Andchannel->lower.oha_hdb.edd.hdbdcp;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 1. 清空 HDB_DCP 結構體</span></span>
+<span class="code-line">    CM_MEMSET(pHDB, 0, sizeof(*pHDB));</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 2. 設置追蹤索引和系統指針</span></span>
+<span class="code-line">    pHDB->TraceIdx = channel->trace_idx;</span>
+<span class="code-line">    pHDB->pSys = channel->sysptr;</span>
+<span class="code-line">    pHDB->pDB = pDB;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 3. 初始化 DCP 識別計數器和計時器</span></span>
+<span class="code-line">    pHDB->dcpIdentCnt = 0;</span>
+<span class="code-line">    <span class="keyword">for</span> (idx = 0; idx < CM_DCP_NUM_IDENTIFY_WITH_SPREAD; ++idx) {</span>
+<span class="code-line">        pHDB->pDcpIdentSendRqb[idx] = LSA_NULL;</span>
+<span class="code-line">        cm_oneshot_init(AndpHDB->dcpIdentTimer[idx], cm_dcp_server_identify_timeout, channel);</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 4. 初始化 GET/SET 鎖定機制（未鎖定）</span></span>
+<span class="code-line">    pHDB->getset_addr.mac[0] = 0xff;  <span class="comment">// not locked</span></span>
+<span class="code-line">    cm_oneshot_init(AndpHDB->getset_timer, cm_dcp_server_getset_timeout, channel);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 5. 預分配發送和接收 RQB</span></span>
+<span class="code-line">    pHDB->pDcpSendRqb = cm_edd_alloc_tx_rqb(channel);</span>
+<span class="code-line">    pHDB->pDcpRecvRqb = LSA_NULL;</span>
+<span class="code-line">    pHDB->pQueryResultRqb = LSA_NULL;</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>關鍵代碼片段：DCP 識別處理 (cm_dcp_server_identify)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="keyword">static</span> <span class="type">LSA_VOID</span> <span class="func">cm_dcp_server_identify</span>(</span>
+<span class="code-line">    <span class="type">CM_CHANNEL_PTR_TYPE</span> edd_channel,</span>
+<span class="code-line">    <span class="type">CM_CHANNEL_PTR_TYPE</span> pd_channel,</span>
+<span class="code-line">    <span class="type">LSA_UINT8</span> <span class="keyword">const</span> * dp,</span>
+<span class="code-line">    <span class="type">LSA_UINT16</span> left,</span>
+<span class="code-line">    <span class="type">LSA_UINT8</span> <span class="keyword">const</span> * src_mac,</span>
+<span class="code-line">    <span class="type">LSA_UINT32</span> Xid,</span>
+<span class="code-line">    <span class="type">LSA_UINT16</span> ResponseDelayFactor,</span>
+<span class="code-line">    <span class="type">LSA_UINT8</span> <span class="keyword">const</span> * local_mac</span>
+<span class="code-line">) {</span>
+<span class="code-line">    <span class="type">OHA_HDB_DCP_PTR_TYPE</span> pHDB = Andedd_channel->lower.oha_hdb.edd.hdbdcp;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 1. 解析 DCP-Identify-ReqPDU 中的選項計數</span></span>
+<span class="code-line">    <span class="type">LSA_UINT16</span> OptCnt = cm_dcp_server_identify_OptCnt(dp, left);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 2. 檢查請求格式和 ResponseDelayFactor</span></span>
+<span class="code-line">    <span class="keyword">if</span> (OptCnt < 1 || !(ResponseDelayFactor >= 0x0001 AndAnd ResponseDelayFactor <= 0x1900)) {</span>
+<span class="code-line">        <span class="comment">// drop (malformed)</span></span>
+<span class="code-line">    }</span>
+<span class="code-line">    <span class="keyword">else</span> <span class="keyword">if</span> (pHDB->dcpIdentCnt >= CM_DCP_NUM_IDENTIFY_TOTAL) {</span>
+<span class="code-line">        <span class="comment">// drop (limit reached)</span></span>
+<span class="code-line">    }</span>
+<span class="code-line">    <span class="keyword">else</span> {</span>
+<span class="code-line">        <span class="comment">// 3. 分配發送 RQB</span></span>
+<span class="code-line">        <span class="type">CM_EDD_LOWER_RQB_PTR_TYPE</span> snd_rqb = cm_edd_alloc_tx_rqb(edd_channel);</span>
+<span class="code-line">        </span>
+<span class="code-line">        <span class="comment">// 4. 生成識別響應（過濾設備名稱、別名等）</span></span>
+<span class="code-line">        <span class="type">LSA_INT</span> RespLen = oha_dcp_Identify(pd_channel, dp, left, OptCnt, snd_ptr, pHDB->pDB);</span>
+<span class="code-line">        </span>
+<span class="code-line">        <span class="comment">// 5. 填充響應頭並發送</span></span>
+<span class="code-line">        cm_dcp_server_fill_response_header(snd_param, src_mac, Xid, DCP_IDENTIFY, RespLen);</span>
+<span class="code-line">        pHDB->dcpIdentCnt += 1;</span>
+<span class="code-line">        </span>
+<span class="code-line">        <span class="comment">// 6. 根據 ResponseDelayFactor 決定是否延遲發送</span></span>
+<span class="code-line">        <span class="keyword">if</span> (ResponseDelayFactor < 2) {</span>
+<span class="code-line">            cm_dcp_server_send_response(pHDB, snd_rqb, LSA_FALSE);</span>
+<span class="code-line">        }</span>
+<span class="code-line">        <span class="keyword">else</span> {</span>
+<span class="code-line">            <span class="comment">// 計算延遲時間：10 * (MAC 最後兩字節 % ResponseDelayFactor) ms</span></span>
+<span class="code-line">            <span class="type">LSA_UINT32</span> K = ((local_mac[4] << 8) | local_mac[5]);</span>
+<span class="code-line">            <span class="type">LSA_UINT32</span> time_msec = 10 * (K % ResponseDelayFactor);</span>
+<span class="code-line">            cm_oneshot_trigger(AndpHDB->dcpIdentTimer[idx], time_msec);</span>
+<span class="code-line">        }</span>
+<span class="code-line">    }</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>關鍵代碼片段：GET/SET 鎖定機制 (cm_dcp_server_getset_lock)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="func">cm_dcp_server_getset_lock</span>(<span class="comment">/* lock-function for get and set */</span></span>
+<span class="code-line">    <span class="type">CM_CHANNEL_PTR_TYPE</span> edd_channel,</span>
+<span class="code-line">    <span class="type">LSA_UINT8</span> <span class="keyword">const</span> * src_mac</span>
+<span class="code-line">) {</span>
+<span class="code-line">    <span class="type">OHA_HDB_DCP_PTR_TYPE</span> pHDB = Andedd_channel->lower.oha_hdb.edd.hdbdcp;</span>
+<span class="code-line">    </span>
+<span class="code-line"><span class="comment">/* legacy: "lock before PDU check" (DCPUCR locks after passed PDU check, TIA 5113822 page 7) */</span></span>
+<span class="code-line">    </span>
+<span class="code-line"><span class="comment">//dcp history: dcp_LockOnClient() ... "if (!ChPtr->ServerSetWait) drop //1126404: ignore any SET/GET in WACK state"</span></span>
+<span class="code-line"><span class="comment">//dcp improve: unify get/set (OHA handled them independently)</span></span>
+<span class="code-line"><span class="comment">//dcp note: correct implementation needs park/unpark (next request may come in, before NRT-send.cnf)</span></span>
+<span class="code-line">    </span>
+<span class="code-line"><span class="keyword">if</span>(</span>
+<span class="code-line">        pHDB->getset_addr.mac[0] == 0xff <span class="comment">/* not locked */</span></span>
+<span class="code-line">        || CM_MEMCMP(pHDB->getset_addr.mac, src_mac, 6) == 0 <span class="comment">/* lock already held */</span></span>
+<span class="code-line">    ) {</span>
+<span class="code-line">        CM_MEMCPY(pHDB->getset_addr.mac, src_mac, 6); <span class="comment">/* now locked (note: "src_mac" is always unicast) */</span></span>
+<span class="code-line">        cm_oneshot_trigger(AndpHDB->getset_timer, 3000); <span class="comment">/* part 6: Client Hold Time 3s */</span></span>
+<span class="code-line">        <span class="keyword">return</span> LSA_TRUE;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line"><span class="keyword">return</span> LSA_FALSE;</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>DCP 過濾器功能</h4>
+                <div class="code-block">
+<span class="code-line">oha_dcp_NameOfStationFilter():</span>
+<span class="code-line">  - 讀取設備名稱（NameOfStation）</span>
+<span class="code-line">  - 轉換為小寫字母</span>
+<span class="code-line">  - 返回 DCP_DATASET_IDENT 過濾器</span>
+<span class="code-line"></span>
+<span class="code-line">oha_dcp_AliasNameFilter():</span>
+<span class="code-line">  - 讀取遠端機箱 ID 和端口 ID</span>
+<span class="code-line">  - 構建別名：PortID.ChassisID</span>
+<span class="code-line">  - 返回 DCP_DATASET_IDENT 過濾器</span>
+                </div>
+                
+                <h4>核心常量</h4>
+                <div class="code-block">
+<span class="code-line">DCP_MAX_REQ_RSP_SIZE = 1466</span>
+<span class="code-line">DCP_NUM_SERVER_IDENTIFY_RESOURCES = 25</span>
+<span class="code-line">DCP_NUM_SERVER_GET_RESOURCES = 8</span>
+<span class="code-line">DCP_NUM_SERVER_SET_RESOURCES = 1</span>
+<span class="code-line">DCP_OPTION_PRODUCT_NAME = 0x0001</span>
+<span class="code-line">DCP_OPTION_DEVICE_NAME = 0x0002</span>
+<span class="code-line">DCP_OPTION_MAC_ADDRESS = 0x0003</span>
+                </div>
+            </div>
+
+            <div class="card" id="module-7">
+                <h3>7. EDDP: 以太網設備驅動協議</h3>
+                <div class="file-path">src/ext/EK52/pn_run/src/eddp/src/core/eddp_core_sm.c</div>
+                <p><strong>核心邏輯：</strong>EDDP (EthernetDeviceDriver for PN-IP) 管理 PROFINET 設備的初始化和關閉狀態機，協調 HAL、計時器、中斷、CMD、SWI、GEN、NRT、CRT 等組件的設置順序。</p>
+                
+                <h4>關鍵代碼片段：設備設置函式表 (EDDP_CoreDeviceSetupFctTable)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="keyword">static const</span> EDDP_DDB_CORE_SM_SETUP_FCT_TBL_TYPE EDDP_CoreDeviceSetupFctTable[] = {</span>
+<span class="code-line">    {EDDP_HALDeviceSetup,        EDDP_HALDeviceShutdown,      EDDP_DDB_CMP_HAL_SETUP},</span>
+<span class="code-line">    {EDDP_CoreTimerDeviceSetup,  EDDP_CoreTimerDeviceShutdown, EDDP_DDB_CMP_CORE_TIMER_SETUP},</span>
+<span class="code-line">    {EDDP_CoreISRDeviceSetup,    EDDP_CoreISRDeviceShutdown,  EDDP_DDB_CMP_CORE_ISR_SETUP},</span>
+<span class="code-line">    {EDDP_CMDDeviceSetup,        EDDP_CMDDeviceShutdown,      EDDP_DDB_CMP_CMD_SETUP},</span>
+<span class="code-line">    {EDDP_SWIDeviceSetup1,       EDDP_SWIDeviceShutdown,      EDDP_DDB_CMP_SWI_SETUP1},</span>
+<span class="code-line">    {EDDP_GENDeviceSetup,        EDDP_GENDeviceShutdown,      EDDP_DDB_CMP_GEN_SETUP},</span>
+<span class="code-line">    {EDDP_NRTDeviceSetup,        EDDP_NRTDeviceShutdown,      EDDP_DDB_CMP_NRT_SETUP},</span>
+<span class="code-line">    {EDDP_CRTDeviceSetup,        EDDP_CRTDeviceShutdown,      EDDP_DDB_CMP_CRT_SETUP},</span>
+<span class="code-line">    {EDDP_SWIDeviceSetup2,       EDDP_SWIDeviceShutdown,      EDDP_DDB_CMP_SWI_SETUP2},</span>
+<span class="code-line">    {EDDP_CoreISRDeviceIFSetup,  EDDP_CoreISRDeviceIFShutdown, EDDP_IDB_CMP_CORE_ISR_SETUP},</span>
+<span class="code-line">    {EDDP_PRMDeviceIFSetup,      EDDP_PRMDeviceIFShutdown,    EDDP_IDB_CMP_PRM_SETUP},</span>
+<span class="code-line">    {EDDP_GENDeviceIFSetup,      EDDP_GENDeviceIFShutdown,    EDDP_IDB_CMP_GEN_SETUP},</span>
+<span class="code-line">    {EDDP_NRTDeviceIFSetup,      EDDP_NRTDeviceIFShutdown,    EDDP_IDB_CMP_NRT_SETUP},</span>
+<span class="code-line">    {EDDP_CRTDeviceIFSetup,      EDDP_CRTDeviceIFShutdown,    EDDP_IDB_CMP_CRT_SETUP},</span>
+<span class="code-line">    {EDDP_SWIDeviceIFSetup,      EDDP_SWIDeviceIFShutdown,    EDDP_IDB_CMP_SWI_SETUP},</span>
+<span class="code-line">    {LSA_NULL,                   LSA_NULL,                     0}  <span class="comment">// end of list</span></span>
+<span class="code-line">};</span>
+                </div>
+                
+                <h4>關鍵代碼片段：設備設置狀態機 (EDDP_CoreDevSetupStateMachine)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="comment">/**</span></span>
+<span class="code-line"><span class="comment"> * EDDP_CoreDevSetupStateMachine: 設備設置狀態機核心邏輯</span></span>
+<span class="code-line"><span class="comment"> * 【設計哲學】</span></span>
+<span class="code-line"><span class="comment"> * 1. 三階段流程：Start → Setup (正向) → Shutdown (逆向撤銷)</span></span>
+<span class="code-line"><span class="comment"> * 2. 非同步處理：使用 while(!Ready) 循環等待組件初始化完成</span></span>
+<span class="code-line"><span class="comment"> * 3. 錯誤恢復：Setup 失敗時，自動倒序撤銷已初始化的組件</span></span>
+<span class="code-line"><span class="comment"> * 【狀態定義】</span></span>
+<span class="code-line"><span class="comment"> * - START:   初始狀態，重置狀態機</span></span>
+<span class="code-line"><span class="comment"> * - DO_SETUP: 正向設置，依次調用各組件 Setup</span></span>
+<span class="code-line"><span class="comment"> * - DO_SHUTDOWN: 逆向撤銷，錯誤時撤銷已設置的組件</span></span>
+<span class="code-line"><span class="comment"> * - IDLE:    結束狀態（成功或失敗）</span></span>
+<span class="code-line"><span class="comment"> */</span></span>
+<span class="code-line">EDDP_CoreDevSetupStateMachine(pDDB, Response) {</span>
+<span class="code-line">    pStateMachine = AndpDDB->Core.Setup;</span>
+<span class="code-line">    ActState      = pStateMachine->State;</span>
+<span class="code-line">    Ready         = LSA_FALSE;  <span class="comment">// 等待非同步操作</span></span>
+<span class="code-line">    NextState     = ActState;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 1. 處理外部觸發的回應（來自上層調用）</span></span>
+<span class="code-line">    <span class="keyword">switch</span> (ActState) {</span>
+<span class="code-line">        <span class="keyword">case</span> START:</span>
+<span class="code-line">            pDDB->Core.CmpSetup = 0; FctTblIdx = 0;</span>
+<span class="code-line">            NextState = DO_SETUP;</span>
+<span class="code-line">            <span class="keyword">break</span>;</span>
+<span class="code-line">        <span class="keyword">case</span> DO_SETUP:</span>
+<span class="code-line">            <span class="keyword">if</span> (Response == OK) {</span>
+<span class="code-line">                CmpSetup |= FctTable[FctTblIdx].SetupMsk; FctTblIdx++;</span>
+<span class="code-line">            } <span class="keyword">else if</span> (Response != OK_PENDING) {</span>
+<span class="code-line">                FctTblIdx--; NextState = DO_SHUTDOWN; <span class="comment">// 錯誤：逆向撤銷</span></span>
+<span class="code-line">            }</span>
+<span class="code-line">            <span class="keyword">break</span>;</span>
+<span class="code-line">        <span class="keyword">case</span> DO_SHUTDOWN:</span>
+<span class="code-line">            <span class="keyword">if</span> (Response == OK) {</span>
+<span class="code-line">                CmpSetup And= ~FctTable[FctTblIdx].SetupMsk;</span>
+<span class="code-line">                NextState = (FctTblIdx > 0) ? DO_SHUTDOWN : IDLE;</span>
+<span class="code-line">            }</span>
+<span class="code-line">            <span class="keyword">break</span>;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 2. while(!Ready) 循環：主動推進狀態機（處理同步操作）</span></span>
+<span class="code-line">    <span class="keyword">while</span> (!Ready) {</span>
+<span class="code-line">        pStateMachine->State = NextState;</span>
+<span class="code-line">        <span class="keyword">switch</span> (NextState) {</span>
+<span class="code-line">            <span class="keyword">case</span> DO_SETUP:</span>
+<span class="code-line">                Response2 = FctTable[FctTblIdx].DeviceSetupFct(pDDB, pDSB);</span>
+<span class="code-line">                <span class="keyword">if</span> (Response2 == OK_PENDING) { Ready = LSA_TRUE; } <span class="comment">// 暫停等待回調</span></span>
+<span class="code-line">                <span class="keyword">else if</span> (Response2 == OK) { CmpSetup |= FctTable[FctTblIdx].SetupMsk; FctTblIdx++; }</span>
+<span class="code-line">                <span class="keyword">else</span> { FctTblIdx--; NextState = DO_SHUTDOWN; } <span class="comment">// 錯誤：逆向撤銷</span></span>
+<span class="code-line">                <span class="keyword">break</span>;</span>
+<span class="code-line">            <span class="keyword">case</span> DO_SHUTDOWN:</span>
+<span class="code-line">                Response2 = FctTable[FctTblIdx].DeviceShutdownFct(pDDB);</span>
+<span class="code-line">                <span class="keyword">if</span> (Response2 == OK) {</span>
+<span class="code-line">                    CmpSetup And= ~FctTable[FctTblIdx].SetupMsk;</span>
+<span class="code-line">                    NextState = (FctTblIdx > 0) ? DO_SHUTDOWN : IDLE;</span>
+<span class="code-line">                }</span>
+<span class="code-line">                <span class="keyword">break</span>;</span>
+<span class="code-line">            <span class="keyword">case</span> IDLE:</span>
+<span class="code-line">                Ready = LSA_TRUE; <span class="keyword">break</span>;</span>
+<span class="code-line">        }</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 3. 結束處理：回調通知上層</span></span>
+<span class="code-line">    <span class="keyword">if</span> (NextState == IDLE) {</span>
+<span class="code-line">        <span class="keyword">if</span> (Response == OK) pDDB->DevIsSetup = LSA_TRUE;</span>
+<span class="code-line">        EDD_RQB_SET_RESPONSE(pRQB, Response);</span>
+<span class="code-line">        EDDP_GlbCallCbf(Cbf, pRQB, pDDB);</span>
+<span class="code-line">    }</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>設備設置順序</h4>
+                <div class="code-block">
+<span class="code-line">1. HAL (硬體抽象層)</span>
+<span class="code-line">2. Core Timer (核心計時器)</span>
+<span class="code-line">3. Core ISR (核心中斷服務)</span>
+<span class="code-line">4. CMD (命令管理)</span>
+<span class="code-line">5. SWI (軟體中斷) x2</span>
+<span class="code-line">6. GEN (通用組件)</span>
+<span class="code-line">7. NRT (非實時通訊)</span>
+<span class="code-line">8. CRT (實時通訊)</span>
+<span class="code-line">9. PRM (參數配置)</span>
+<span class="code-line">10. 介面設置 (IF)</span>
+                </div>
+                
+                <h4>狀態定義</h4>
+                <div class="code-block">
+<span class="code-line">EDDP_DDB_STATE_SETUP_IDLE     = 0  <span class="comment">// 閒置狀態</span></span>
+<span class="code-line">EDDP_DDB_STATE_SETUP_START    = 1  <span class="comment">// 開始設置</span></span>
+<span class="code-line">EDDP_DDB_STATE_SETUP_DO_SETUP = 2  <span class="comment">// 執行設置</span></span>
+<span class="code-line">EDDP_DDB_STATE_SETUP_DO_SHUTDOWN = 3  <span class="comment">// 執行關閉</span></span>
+                </div>
+            </div>
+
+            <div class="card" id="module-8">
+                <h3>8. ACP_LL: ACP 底層接口</h3>
+                <div class="file-path">src/ext/EK52/pn_run/src/acp/src/src/acp_low.c</div>
+                <p><strong>核心邏輯：</strong>ACP_LL (ACP Lower Layer) 實現 ACP (Alarm Consumer Provider) 與 EDD 底層的接口，處理通道打開/關閉、RQB 分配/釋放、參數獲取等操作。</p>
+                
+                <h4>關鍵代碼片段：RQB 分配 (acp_ll_alloc_rqb)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">ACP_LOWER_RQB_PTR_TYPE</span> <span class="func">acp_ll_alloc_rqb</span>(</span>
+<span class="code-line">    <span class="type">ACP_LOWER_CONST_PTR</span> channel_lower</span>
+<span class="code-line">) {</span>
+<span class="code-line">    <span class="type">LSA_UINT16</span> length = sizeof(<span class="type">ACP_LL_USED_DATA_TYPE</span>);</span>
+<span class="code-line">    <span class="type">ACP_LOWER_RQB_PTR_TYPE</span> lower_rqb_ptr;</span>
+<span class="code-line">    <span class="type">ACP_LOWER_MEM_PTR_TYPE</span> lower_mem;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 1. 分配 RQB 結構體</span></span>
+<span class="code-line">    ACP_ALLOC_LOWER_RQB(Andlower_rqb_ptr, sizeof(*lower_rqb_ptr), channel_lower->sysptr);</span>
+<span class="code-line">    <span class="keyword">if</span> (acp_is_null(lower_rqb_ptr)) {</span>
+<span class="code-line">        ACP_LOWER_TRACE_00(channel_lower->trace_idx, LSA_TRACE_LEVEL_UNEXP, <span class="string">"acp_ll_alloc_rqb: !lower_rqb"</span>);</span>
+<span class="code-line">        <span class="keyword">return</span> LSA_NULL;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 2. 分配用戶數據內存</span></span>
+<span class="code-line">    ACP_ALLOC_LOWER_MEM(Andlower_mem, length, channel_lower->sysptr);</span>
+<span class="code-line">    <span class="keyword">if</span> (acp_is_null(lower_mem)) {</span>
+<span class="code-line">        ACP_LOWER_TRACE_00(channel_lower->trace_idx, LSA_TRACE_LEVEL_UNEXP, <span class="string">"acp_ll_alloc_rqb: !lower_mem"</span>);</span>
+<span class="code-line">        ACP_FREE_LOWER_RQB(Andrc, lower_rqb_ptr, channel_lower->sysptr);</span>
+<span class="code-line">        <span class="keyword">return</span> LSA_NULL;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 3. 將內存指針設置為 RQB 的參數</span></span>
+<span class="code-line">    EDD_RQB_SET_PPARAM(lower_rqb_ptr, lower_mem);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="keyword">return</span> lower_rqb_ptr;</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>關鍵代碼片段：打開通道 (acp_ll_open_channel)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">LSA_BOOL</span> <span class="func">acp_ll_open_channel</span>(</span>
+<span class="code-line">    <span class="type">ACP_CHANNEL_PTR</span> channel,</span>
+<span class="code-line">    <span class="type">LSA_SYS_PATH_TYPE</span> sys_path</span>
+<span class="code-line">) {</span>
+<span class="code-line">    <span class="type">ACP_LOWER_PTR</span> lower = Andchannel->u.edd.lower;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 1. 初始化底層結構</span></span>
+<span class="code-line">    lower->sysptr = channel->sysptr;</span>
+<span class="code-line">    lower->handle_lower = 0;</span>
+<span class="code-line">    lower->trace_idx = 0;</span>
+<span class="code-line">    lower->interface_id = 0;</span>
+<span class="code-line">    lower->IsInTSNMode = LSA_FALSE;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 2. 初始化隊列列表</span></span>
+<span class="code-line">    AcpListInitialize(Andlower->q_or_send.nrt_send_list);</span>
+<span class="code-line">    AcpListInitialize(Andlower->q_or_send.data_list);</span>
+<span class="code-line">    AcpListInitialize(Andlower->q_or_send.ack_list);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 3. 分配 RQB 並設置打開通道操作碼</span></span>
+<span class="code-line">    lower_rqb = acp_ll_alloc_rqb(lower);</span>
+<span class="code-line">    <span class="keyword">if</span> (acp_is_null(lower_rqb)) {</span>
+<span class="code-line">        <span class="keyword">return</span> LSA_FALSE;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    ACP_LL_SET_OPCODE(lower_rqb, EDD_OPC_OPEN_CHANNEL);</span>
+<span class="code-line">    ACP_LL_SET_SERVICE(lower_rqb, 0);</span>
+<span class="code-line">    ACP_LL_SET_HANDLES(lower_rqb, LSA_NULL);</span>
+<span class="code-line">    ACP_LL_SET_USERID_U32(lower_rqb, 0);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 4. 設置打開通道參數</span></span>
+<span class="code-line">    edd_open = ACP_LL_GET_PPARAM(lower_rqb, <span class="type">ACP_LL_OPEN_CHANNEL_PTR_TYPE</span>);</span>
+<span class="code-line">    edd_open->Cbf = acp_request_lower_done;</span>
+<span class="code-line">    edd_open->SysPath = sys_path;</span>
+<span class="code-line">    edd_open->HandleUpper = channel->my_handle;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 5. 發送打開通道請求</span></span>
+<span class="code-line">    ACP_OPEN_CHANNEL_LOWER(lower_rqb, lower->sysptr);</span>
+<span class="code-line">    <span class="keyword">return</span> LSA_TRUE;</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>關鍵代碼片段：獲取參數 (acp_ll_get_params_done)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="keyword">static</span> <span class="type">LSA_VOID</span> <span class="func">acp_ll_get_params_done</span>(</span>
+<span class="code-line">    <span class="type">ACP_CHANNEL_PTR</span> channel,</span>
+<span class="code-line">    <span class="type">ACP_LOWER_RQB_PTR_TYPE</span> lower_rqb,</span>
+<span class="code-line">    <span class="type">LSA_UINT16</span> edd_rsp</span>
+<span class="code-line">) {</span>
+<span class="code-line">    <span class="type">ACP_LOWER_PTR</span> lower = Andchannel->u.edd.lower;</span>
+<span class="code-line">    <span class="type">ACP_LL_GET_PARAMS_CONST_PTR_TYPE</span> edd_params = ACP_LL_GET_PPARAM(lower_rqb, <span class="type">ACP_LL_GET_PARAMS_CONST_PTR_TYPE</span>);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 1. 檢查 EDD 模式是否有效</span></span>
+<span class="code-line">    <span class="keyword">if</span> (edd_params->EDDMode != EDD_MODE_NON_TSN AndAnd edd_params->EDDMode != EDD_MODE_TSN) {</span>
+<span class="code-line">        ACP_FATAL(edd_params->EDDMode);</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 2. 複製通道參數到本地結構</span></span>
+<span class="code-line">    lower->trace_idx = edd_params->TraceIdx;</span>
+<span class="code-line">    lower->interface_id = (<span class="type">LSA_UINT16</span>)edd_params->InterfaceID;</span>
+<span class="code-line">    ACP_MEMCPY(lower->mac_addr, edd_params->MACAddr.MacAdr, ACP_MAC_ADDR_SIZE);</span>
+<span class="code-line">    lower->IsInTSNMode = (edd_params->EDDMode == EDD_MODE_TSN ? LSA_TRUE : LSA_FALSE);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 3. 保存 RQB 以供關閉通道使用</span></span>
+<span class="code-line">    lower->ll_rqb = lower_rqb;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 4. 通知上層通道已打開</span></span>
+<span class="code-line">    acp_open_channel_done(channel, ACP_OK);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 5. 提供 NRT 資源</span></span>
+<span class="code-line">    acp_nrt_resource_provide(lower, channel->detailptr);</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>核心操作</h4>
+                <div class="code-block">
+<span class="code-line">acp_ll_alloc_rqb(): 分配 RQB 和用戶數據內存</span>
+<span class="code-line">acp_ll_free_rqb(): 釋放 RQB 和用戶數據內存</span>
+<span class="code-line">acp_ll_open_channel(): 打開 EDD 通道</span>
+<span class="code-line">acp_ll_close_channel(): 關閉 EDD 通道</span>
+<span class="code-line">acp_ll_request(): 發送底層請求</span>
+<span class="code-line">acp_ll_indication(): 底層指示回調</span>
+                </div>
+                
+                <h4>宏定義</h4>
+                <div class="code-block">
+<span class="code-line">ACP_LL_SET_HANDLES(pRQB, value): 設置 RQB 句柄</span>
+<span class="code-line">ACP_LL_SET_OPCODE(pRQB, opcode): 設置操作碼</span>
+<span class="code-line">ACP_LL_SET_SERVICE(pRQB, service): 設置服務類型</span>
+<span class="code-line">ACP_LL_SET_USERID_U32(pRQB, userid): 設置用戶 ID</span>
+<span class="code-line">ACP_LL_GET_PPARAM(pRQB, type): 獲取參數指針</span>
+                </div>
+            </div>
+
+            <div class="card" id="module-9">
+                <h3>9. CM_AR: AR (Application Relationship) 管理</h3>
+                <div class="file-path">src/ext/EK52/pn_run/src/cm/src/src/cm_arsm.c</div>
+                <p><strong>核心邏輯：</strong>CM_AR (Context Management - AR State Machine) 管理 PROFINET 的 AR (Application Relationship) 狀態機，處理 AR 建立、數據交換、關閉等階段，協調 IOC、IOM、ACP 等組件。</p>
+                
+                <h4>關鍵代碼片段：Provider 激活狀態機 (cm_ar_com_prov_activate_next)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">static LSA_VOID</span> <span class="func">cm_ar_com_prov_activate_next</span>(</span>
+<span class="code-line">    <span class="type">CM_AR_GRAPH_PTR_TYPE</span> argr,</span>
+<span class="code-line">    <span class="type">CM_AR_GRAPH_IO_CR_PTR_TYPE</span> iocr,</span>
+<span class="code-line">    <span class="type">CM_EDD_LOWER_RQB_PTR_TYPE</span> edd,</span>
+<span class="code-line">    <span class="type">LSA_UINT16</span> acp_mode_initial</span>
+<span class="code-line">) {</span>
+<span class="code-line">    <span class="keyword">if</span> (cm_is_null(iocr)) {</span>
+<span class="code-line">        <span class="comment">// 初始化：更新自動停止消費者 ID</span></span>
+<span class="code-line">        cm_ar_graph_update_autostop_cons_id(argr);</span>
+<span class="code-line">        </span>
+<span class="code-line">        <span class="comment">// 獲取第一個 IO_CR</span></span>
+<span class="code-line">        iocr = CmListFirst(Andargr->io_cr_list, <span class="type">CM_AR_GRAPH_IO_CR_PTR_TYPE</span>);</span>
+<span class="code-line">    }</span>
+<span class="code-line">    <span class="keyword">else</span> { <span class="comment">// activate.cnf(+/-)</span></span>
+<span class="code-line">        <span class="keyword">if</span> (iocr->cm.cr_state == CM_AR_CR_ERROR) {</span>
+<span class="code-line">            <span class="comment">// 錯誤狀態：觸發 down 事件</span></span>
+<span class="code-line">            cm_ar_com_down_debug_data_fmt(argr, CM_MODULE_ID, __LINE__, CM_AR_REASON_FRAME, iocr->frame_id);</span>
+<span class="code-line">            cm_ar_com_down(argr, CM_AR_REASON_FRAME);</span>
+<span class="code-line">        }</span>
+<span class="code-line">        <span class="keyword">else</span> {</span>
+<span class="code-line">            CM_ASSERT(iocr->cm.cr_state == CM_AR_CR_UP);</span>
+<span class="code-line">        }</span>
+<span class="code-line">        <span class="comment">// 移動到下一個 IO_CR</span></span>
+<span class="code-line">        iocr = CmListNext(Andargr->io_cr_list, Andiocr->link, <span class="type">CM_AR_GRAPH_IO_CR_PTR_TYPE</span>);</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 遍歷所有 Provider</span></span>
+<span class="code-line">    <span class="keyword">for</span> (</span>
+<span class="code-line">        ; cm_is_not_null(iocr)</span>
+<span class="code-line">        ; iocr = CmListNext(Andargr->io_cr_list, Andiocr->link, <span class="type">CM_AR_GRAPH_IO_CR_PTR_TYPE</span>)</span>
+<span class="code-line">    ) {</span>
+<span class="code-line">        <span class="keyword">if</span> (!iocr->cm.is_consumer) { <span class="comment">// 處理 Provider（包括單播和組播）</span></span>
+<span class="code-line">            <span class="keyword">if</span> (CM_ACPID_ISVALID(iocr)) {</span>
+<span class="code-line">                iocr->cm.cr_state = CM_AR_CR_UP;</span>
+<span class="code-line">                <span class="keyword">break</span>; <span class="comment">// 激活此 Provider</span></span>
+<span class="code-line">            }</span>
+<span class="code-line">        }</span>
+<span class="code-line">    }</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>AR 狀態定義</h4>
+                <div class="code-block">
+<span class="code-line">CM_AR_STATE_INITIAL     = 0  <span class="comment">// 初始狀態</span></span>
+<span class="code-line">CM_AR_STATE_AR_REQ      = 1  <span class="comment">// AR 請求</span></span>
+<span class="code-line">CM_AR_STATE_AR_PREPAR   = 2  <span class="comment">// AR 準備</span></span>
+<span class="code-line">CM_AR_STATE_AR_SETUP    = 3  <span class="comment">// AR 建立</span></span>
+<span class="code-line">CM_AR_STATE_DATA_READY  = 4  <span class="comment">// 數據就緒</span></span>
+<span class="code-line">CM_AR_STATE_AR_CLOSE    = 5  <span class="comment">// AR 關閉</span></span>
+<span class="code-line">CM_AR_STATE_AR_ERROR    = 6  <span class="comment">// AR 錯誤</span></span>
+                </div>
+                
+                <h4>CR (Communication Relationship) 狀態</h4>
+                <div class="code-block">
+<span class="code-line">CM_AR_CR_INITIAL        = 0  <span class="comment">// 初始狀態</span></span>
+<span class="code-line">CM_AR_CR_PASSIVE        = 1  <span class="comment">// 被動狀態</span></span>
+<span class="code-line">CM_AR_CR_ACTIVE         = 2  <span class="comment">// 主動狀態</span></span>
+<span class="code-line">CM_AR_CR_ERROR          = 3  <span class="comment">// 錯誤狀態</span></span>
+                </div>
+                
+                <h4>核心函式</h4>
+                <div class="code-block">
+<span class="code-line">cm_ar_com_prov_activate_next(): Provider 激活狀態機</span>
+<span class="code-line">cm_ar_com_cons_activate_next(): Consumer 激活狀態機</span>
+<span class="code-line">cm_ar_com_prov_apdu_status_next(): 設置 APDU 狀態</span>
+<span class="code-line">cm_ar_com_alarm_add_next(): 添加警報</span>
+<span class="code-line">cm_ar_com_alarm_remove_next(): 移除警報</span>
+<span class="code-line">cm_ar_com_down(): AR 通訊停止</span>
+                </div>
+            </div>
+
+            <div class="card" id="module-10">
+                <h3>10. CM_AL: 警報管理 (ACP Alarm)</h3>
+                <div class="file-path">src/ext/EK52/pn_run/src/acp/src/src/acp_al.c</div>
+                <p><strong>核心邏輯：</strong>CM_AL (ACP Alarm) 實現 PROFINET 的警報處理機制，管理警報的分配、狀態轉換、優先級處理和警報資源的提供/關閉。</p>
+                
+                <h4>關鍵代碼片段：警報查找 (acp_alarm_find)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">ACP_LOCAL_ALARM_PTR</span> <span class="func">acp_alarm_find</span>(</span>
+<span class="code-line">    <span class="type">ACP_CHANNEL_CONST_PTR</span> channel,</span>
+<span class="code-line">    <span class="type">LSA_UINT16</span> alarm_ref</span>
+<span class="code-line">) {</span>
+<span class="code-line">    <span class="comment">// 1. 調整警報引用號（相對於通道基址）</span></span>
+<span class="code-line">    alarm_ref -= channel->u.usr.base;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 2. 檢查是否在有效範圍內</span></span>
+<span class="code-line">    <span class="keyword">if</span> (alarm_ref < channel->u.usr.max_alarms) {</span>
+<span class="code-line">        <span class="keyword">return</span> Andchannel->u.usr.alarms[alarm_ref];</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="keyword">return</span> LSA_NULL;</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>關鍵代碼片段：檢查警報是否可用 (acp_alarm_is_free)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">LSA_BOOL</span> <span class="func">acp_alarm_is_free</span>(</span>
+<span class="code-line">    <span class="type">ACP_CHANNEL_CONST_PTR</span> channel,</span>
+<span class="code-line">    <span class="type">LSA_UINT16</span> alarm_ref</span>
+<span class="code-line">) {</span>
+<span class="code-line">    <span class="type">ACP_LOCAL_ALARM_PTR</span> alarm = acp_alarm_find(channel, alarm_ref);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="keyword">if</span> (acp_is_not_null(alarm)) {</span>
+<span class="code-line">        <span class="keyword">if</span> (alarm->state == ACP_ALARM_ST_FREE) {</span>
+<span class="code-line">            <span class="keyword">return</span> LSA_TRUE;</span>
+<span class="code-line">        }</span>
+<span class="code-line">    }</span>
+<span class="code-line">    <span class="keyword">return</span> LSA_FALSE;</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>關鍵代碼片段：檢查警報資源並關閉 (acp_alarm_check_provided_and_close)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="keyword">static</span> <span class="type">LSA_VOID</span> <span class="func">acp_alarm_check_provided_and_close</span>(</span>
+<span class="code-line">    <span class="type">ACP_CHANNEL_CONST_PTR</span> channel,</span>
+<span class="code-line">    <span class="type">ACP_LOCAL_ALARM_PTR</span> alarm</span>
+<span class="code-line">) {</span>
+<span class="code-line">    <span class="type">ACP_RTA_SM_PTR</span> rtasm_high = acp_rta_sm_from_alarm(alarm, ACP_ALARM_PRIORITY_HIGH);</span>
+<span class="code-line">    <span class="type">ACP_RTA_SM_PTR</span> rtasm_low  = acp_rta_sm_from_alarm(alarm, ACP_ALARM_PRIORITY_LOW);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 1. 檢查高優先級和低優先級 RTA 狀態機是否都已提供資源</span></span>
+<span class="code-line">    <span class="keyword">if</span> ((acp_is_not_null(rtasm_high->upper) || !rtasm_high->provided_once) AndAnd</span>
+<span class="code-line">        (acp_is_not_null(rtasm_low->upper) || !rtasm_low->provided_once)) {</span>
+<span class="code-line">        </span>
+<span class="code-line">        <span class="comment">// 2. 如果高優先級已提供，發送提供確認</span></span>
+<span class="code-line">        <span class="keyword">if</span> (rtasm_high->provided_once) {</span>
+<span class="code-line">            rb = rtasm_high->upper;</span>
+<span class="code-line">            rtasm_high->upper = LSA_NULL;</span>
+<span class="code-line">            ACP_RQB_SET_OPCODE(rb, ACP_OPC_ALARM_IND_RES_PROVIDE);</span>
+<span class="code-line">            acp_callback(channel, ACP_OK_CANCEL, rb);</span>
+<span class="code-line">        }</span>
+<span class="code-line">        </span>
+<span class="code-line">        <span class="comment">// 3. 如果低優先級已提供，發送提供確認</span></span>
+<span class="code-line">        <span class="keyword">if</span> (rtasm_low->provided_once) {</span>
+<span class="code-line">            rb = rtasm_low->upper;</span>
+<span class="code-line">            rtasm_low->upper = LSA_NULL;</span>
+<span class="code-line">            ACP_RQB_SET_OPCODE(rb, ACP_OPC_ALARM_IND_RES_PROVIDE);</span>
+<span class="code-line">            acp_callback(channel, ACP_OK_CANCEL, rb);</span>
+<span class="code-line">        }</span>
+<span class="code-line">        </span>
+<span class="code-line">        <span class="comment">// 4. 標記警報正在關閉</span></span>
+<span class="code-line">        alarm->on_closing = 1;</span>
+<span class="code-line">    }</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>警報狀態定義</h4>
+                <div class="code-block">
+<span class="code-line">ACP_ALARM_ST_FREE         = 0  <span class="comment">// 警報資源空閒</span></span>
+<span class="code-line">ACP_ALARM_ST_WF_ACK       = 1  <span class="comment">// 等待確認</span></span>
+<span class="code-line">ACP_ALARM_ST_WF_FREE      = 2  <span class="comment">// 等待空閒</span></span>
+<span class="code-line">ACP_ALARM_ST_ACTIVE       = 3  <span class="comment">// 警報活動中</span></span>
+                </div>
+                
+                <h4>警報優先級</h4>
+                <div class="code-block">
+<span class="code-line">ACP_ALARM_PRIORITY_LOW  = 0  <span class="comment">// 低優先級警報</span></span>
+<span class="code-line">ACP_ALARM_PRIORITY_HIGH = 1  <span class="comment">// 高優先級警報</span></span>
+                </div>
+                
+                <h4>核心常量</h4>
+                <div class="code-block">
+<span class="code-line">ACP_RTA_MIN_SEND_LEN = 32  <span class="comment">// 最小發送長度</span></span>
+<span class="code-line">ACP_ALARM_USER_DATA_OFFSET = ACP_ALARM_REQUEST_SIZE + 2  <span class="comment">// 用戶數據偏移</span></span>
+                </div>
+            </div>
+
+            <div class="card" id="module-11">
+                <h3>11. PN-PB Core (協議核心)</h3>
+                <div class="file-path">src/ext/EK52/pn_ioddevkits/src/application/App1_STANDARD/usriod_main.c</div>
+                <p><strong>核心邏輯：</strong>PN-PB Core (Protocol Network - Protocol Base) 是 EK52 應用層的核心，實現 PROFINET 設備的主程式邏輯，包括設備啟動、模組配置、數據交換和應用層回調。</p>
+                
+                <h4>關鍵代碼片段：應用主程式 (MainAppl)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">void</span> <span class="func">MainAppl</span>(<span class="type">void</span>) {</span>
+<span class="code-line">    <span class="type">PNIO_BOOL</span> ConsoleProtection = PNIO_TRUE;</span>
+<span class="code-line">    <span class="type">PNIO_UINT32</span> Status = PNIO_OK;</span>
+<span class="code-line">    <span class="type">PNIO_UINT32</span> exitAppl = PNIO_FALSE;</span>
+<span class="code-line">    <span class="type">PNIO_BOOL</span> isDeviceRunning = PNIO_FALSE;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 1. 設置設備參數</span></span>
+<span class="code-line">    PnUsrDev.VendorId = IOD_CFG_VENDOR_ID;</span>
+<span class="code-line">    PnUsrDev.DeviceId = IOD_CFG_DEVICE_ID;</span>
+<span class="code-line">    PnUsrDev.MaxNumOfSubslots = IOD_CFG_NUMOF_SUBSLOTS;</span>
+<span class="code-line">    PnUsrDev.pDevType = (<span class="type">PNIO_INT8</span>*)IOD_CFG_DEVICE_TYPE;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 2. 啟動 PN 棧：設置設備並插入所有 IO 模組</span></span>
+<span class="code-line">    Status = PnUsr_DeviceSetup(AndPnUsrDev,</span>
+<span class="code-line">                                AndIoSubList[0],</span>
+<span class="code-line">                                <span class="type">sizeof</span>(IoSubList) / <span class="type">sizeof</span>(IoSubList[0]),</span>
+<span class="code-line">                                AndIm0List[0],</span>
+<span class="code-line">                                <span class="type">sizeof</span>(Im0List) / <span class="type">sizeof</span>(Im0List[0]));</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 3. 檢查啟動結果</span></span>
+<span class="code-line">    <span class="keyword">if</span> (Status == PNIO_OK) {</span>
+<span class="code-line">        PNIO_ConsolePrintf(<span class="string">"SYSTEM STARTUP FINISHED, OK\n"</span>);</span>
+<span class="code-line">        isDeviceRunning = PNIO_TRUE;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    <span class="keyword">else</span> {</span>
+<span class="code-line">        PNIO_ConsolePrintf(<span class="string">"##ERROR AT SYSTEM STARTUP\n"</span>);</span>
+<span class="code-line">    }</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>關鍵代碼片段：數據交換回調 (PnUsr_cbf_IoDatXch)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">PNIO_BOOL</span> <span class="func">PnUsr_cbf_IoDatXch</span>(<span class="type">void</span>) {</span>
+<span class="code-line">    <span class="type">volatile PNIO_UINT32</span> Status;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 1. 從控制器讀取輸出數據</span></span>
+<span class="code-line">    Status = PNIO_initiate_data_read(PNIO_SINGLE_DEVICE_HNDL);</span>
+<span class="code-line">    LastRemoteApduStatus = PNIO_get_last_apdu_status(PNIO_SINGLE_DEVICE_HNDL, 1);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="keyword">switch</span> (Status) {</span>
+<span class="code-line">        <span class="keyword">case</span> PNIO_OK:</span>
+<span class="code-line">            <span class="keyword">break</span>;</span>
+<span class="code-line">        <span class="keyword">case</span> PNIO_NOT_OK:</span>
+<span class="code-line">            <span class="keyword">break</span>;</span>
+<span class="code-line">        <span class="keyword">default</span>:</span>
+<span class="code-line">            PNIO_ConsolePrintf(<span class="string">"Error 0x%x at PNIO_initiate_data_read()\n"</span>, Status);</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 2. 實現用戶軟件（例如：寫入物理輸出）</span></span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 3. 將輸入數據寫回控制器</span></span>
+<span class="code-line">    <span class="keyword">if</span> (Status != PNIO_NOT_OK)</span>
+<span class="code-line">        Status = PNIO_initiate_data_write(PNIO_SINGLE_DEVICE_HNDL);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="keyword">return</span> (Status);</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>核心功能</h4>
+                <div class="code-block">
+<span class="code-line">MainAppl(): 應用主程式，啟動設備和 PN 棧</span>
+<span class="code-line">PnUsr_DeviceSetup(): 設置設備配置和插入模組</span>
+<span class="code-line">PnUsr_cbf_IoDatXch(): 數據交換回調函式</span>
+<span class="code-line">PNIO_initiate_data_read(): 讀取輸出數據</span>
+<span class="code-line">PNIO_initiate_data_write(): 寫入輸入數據</span>
+                </div>
+            </div>
+
+            <div class="card" id="module-12">
+                <h3>12. IOM (IO Manager)</h3>
+                <div class="file-path">src/ext/EK52/pn_ioddevkits/src/source/iom/src/iom_interface.c</div>
+                <p><strong>核心邏輯：</strong>IOM (IO Manager) 管理 PROFINET 設備的 IO 數據緩衝區分配、IOCR 內存管理、數據一致性保證和硬件特定操作（如 PERIF 模組）。</p>
+                
+                <h4>關鍵代碼片段：分配 IOCR 內存 (iom_allocate_iocr_memory)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">LSA_BOOL</span> <span class="func">iom_allocate_iocr_memory</span>(</span>
+<span class="code-line">    <span class="type">LSA_UINT32</span> ar_idx,</span>
+<span class="code-line">    <span class="type">LSA_UINT16</span> ar_set_nr,</span>
+<span class="code-line">    <span class="type">LSA_UINT16</span> session_key,</span>
+<span class="code-line">    <span class="type">CM_UPPER_SV_AR_CONNECT_IOCR_PTR_TYPE</span> iocr_ptr</span>
+<span class="code-line">) {</span>
+<span class="code-line">    <span class="comment">// iocr_ptr: 定義緩衝區大小和 IOCR 類型（輸入/輸出）</span></span>
+<span class="code-line">#if defined IOM_CFG_PNIP</span>
+<span class="code-line">    <span class="keyword">return</span> iom_perif_allocate_iocr_memory(ar_idx, ar_set_nr, session_key, iocr_ptr);</span>
+<span class="code-line">#endif</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>關鍵代碼片段：釋放 IOCR 內存 (iom_free_iocr_memory)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">LSA_VOID</span> <span class="func">iom_free_iocr_memory</span>(<span class="type">LSA_UINT32</span> ar_idx) {</span>
+<span class="code-line">    <span class="comment">// 釋放之前分配的 IOCR 內存</span></span>
+<span class="code-line">    <span class="comment">// 注意：可能不是同步釋放，因為緩衝區可能被鎖定</span></span>
+<span class="code-line">    <span class="comment">// 當釋放完成時，會調用 IOM_IOCR_MEMORY_FREED() 宏</span></span>
+<span class="code-line">#if defined IOM_CFG_PNIP</span>
+<span class="code-line">    iom_perif_free_iocr_memory(ar_idx);</span>
+<span class="code-line">#endif</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>核心功能</h4>
+                <div class="code-block">
+<span class="code-line">iom_init(): IOM 模組初始化</span>
+<span class="code-line">iom_allocate_iocr_memory(): 分配 IOCR 內存</span>
+<span class="code-line">iom_free_iocr_memory(): 釋放 IOCR 內存</span>
+<span class="code-line">iom_get_consumer_buffer(): 獲取消費者緩衝區（控制器 -> 設備）</span>
+<span class="code-line">iom_get_producer_buffer(): 獲取生產者緩衝區（設備 -> 控制器）</span>
+                </div>
+                
+                <h4>配置常量</h4>
+                <div class="code-block">
+<span class="code-line">IOM_CFG_PNIP: PNIP 模式配置</span>
+<span class="code-line">IOM_CFG_LOCATE_INSTRUCTIONS_TO_TCM: 將指令定位到 TCM</span>
+<span class="code-line">IOM_ITCM_SECTION_NAME: ITCM 區段名稱</span>
+                </div>
+            </div>
+
+            <div class="card" id="module-13">
+                <h3>13. PnUsr: 應用層共享記憶體 API</h3>
+                <div class="file-path">src/pns/app/PnUsr_SharedMemory.c</div>
+                <p><strong>核心邏輯：</strong>PnUsr 模組提供應用層與 PROFINET 協議棧之間的共享記憶體介面，使用 FSP 的 R_SHARED_MEMORY 驅動進行核心間數據交換。</p>
+                
+                <h4>關鍵代碼片段：共享記憶體讀取 (PNIO_SHM_Read)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">LSA_UINT32</span> <span class="func">PNIO_SHM_Read</span>(<span class="type">LSA_UINT32</span> address, <span class="type">LSA_UINT32</span> length, <span class="type">LSA_UINT8</span>* p_dst)</span>
+<span class="code-line">{</span>
+<span class="code-line">    <span class="type">LSA_UINT32</span> retval = PNIO_OK;</span>
+<span class="code-line">#if IOD_INCLUDE_SHM_CORE2CORE</span>
+<span class="code-line">    <span class="type">fsp_err_t</span> fsp_err;</span>
+<span class="code-line">    fsp_err = <span class="func">R_SHARED_MEMORY_Read</span>(Andg_shared_memory0_ctrl, p_dst, address, length);</span>
+<span class="code-line">    <span class="keyword">if</span> (FSP_SUCCESS != fsp_err)</span>
+<span class="code-line">    {</span>
+<span class="code-line">        retval = PNIO_NOT_OK;</span>
+<span class="code-line">    }</span>
+<span class="code-line">#elif IOD_INCLUDE_SHM_SHOSTIF_REMOTE</span>
+<span class="code-line">    <span class="func">OsMemCpy</span>(p_dst, (<span class="type">PNIO_VOID</span>*)address, length);</span>
+<span class="code-line">#elif IOD_INCLUDE_SHM_SHOSTIF_HOST</span>
+<span class="code-line">    <span class="keyword">if</span> (<span class="keyword">false</span> == <span class="func">shost_host_read</span>(address, length))</span>
+<span class="code-line">    {</span>
+<span class="code-line">        <span class="keyword">return</span> PNIO_NOT_OK;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="func">memcpy</span>(p_dst, (<span class="type">void</span> *)address, length);</span>
+<span class="code-line">#endif</span>
+<span class="code-line">    <span class="keyword">return</span> retval;</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>關鍵代碼片段：共享記憶體寫入 (PNIO_SHM_Write)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">LSA_UINT32</span> <span class="func">PNIO_SHM_Write</span>(<span class="type">LSA_UINT32</span> address, <span class="type">LSA_UINT32</span> length, <span class="type">LSA_UINT8</span>* p_src)</span>
+<span class="code-line">{</span>
+<span class="code-line">    <span class="type">LSA_UINT32</span> retval = PNIO_OK;</span>
+<span class="code-line">#if IOD_INCLUDE_SHM_CORE2CORE</span>
+<span class="code-line">    <span class="type">fsp_err_t</span> fsp_err;</span>
+<span class="code-line">    fsp_err = <span class="func">R_SHARED_MEMORY_Write</span>(Andg_shared_memory0_ctrl, p_src, address, length);</span>
+<span class="code-line">    <span class="keyword">if</span> (FSP_SUCCESS != fsp_err)</span>
+<span class="code-line">    {</span>
+<span class="code-line">        retval = PNIO_NOT_OK;</span>
+<span class="code-line">    }</span>
+<span class="code-line">#elif IOD_INCLUDE_SHM_SHOSTIF_REMOTE</span>
+<span class="code-line">    <span class="func">OsMemCpy</span>((<span class="type">PNIO_VOID</span>*)address, p_src, length);</span>
+<span class="code-line">#elif IOD_INCLUDE_SHM_SHOSTIF_HOST</span>
+<span class="code-line">    <span class="keyword">if</span> (<span class="keyword">false</span> == <span class="func">shost_host_read</span>(address, length))</span>
+<span class="code-line">    {</span>
+<span class="code-line">        <span class="keyword">return</span> PNIO_NOT_OK;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="func">memcpy</span>((<span class="type">void</span> *)address, p_src, length);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="keyword">if</span> (<span class="keyword">false</span> == <span class="func">shost_host_write</span>(address, length))</span>
+<span class="code-line">    {</span>
+<span class="code-line">        <span class="keyword">return</span> PNIO_NOT_OK;</span>
+<span class="code-line">    }</span>
+<span class="code-line">#endif</span>
+<span class="code-line">    <span class="keyword">return</span> retval;</span>
+<span class="code-line">}</span>
+                </div>
+
+                <h4>關鍵檔案</h4>
+                <div class="code-block">
+<span class="code-line">PnUsr_SharedMemory.c  <span class="comment">- 共享記憶體讀寫 (PNIO_SHM_Read/Write)</span></span>
+<span class="code-line">PnUsr_SharedMemory.h  <span class="comment">- 結構體定義 (pnusr_shared_memory_t)</span></span>
+<span class="code-line">rzt2_pns_rsk.c        <span class="comment">- RZ/T2 RSK 開發板特定實作</span></span>
+                </div>
+            </div>
+
+            <div class="card" id="module-14">
+                <h3>14. EDDP-PNS: 硬體加速與副核實作</h3>
+                <div class="file-path">src/pns/eddp/eddp_k32.c</div>
+                <p><strong>核心邏輯：</strong>EDDP 在 pns 目錄的實作專注於 KRISC32 (K32) 副核支援，處理 IRT 週期數據的時間戳處理和 RQB/RDB 封包傳輸。</p>
+                
+                <h4>關鍵代碼片段：時間戳複製 (EDDP_CopyTimeStamp)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="keyword">static</span> <span class="type">EDD_RSP</span> <span class="func">EDDP_CopyTimeStamp</span>(</span>
+<span class="code-line">    <span class="keyword">volatile</span> <span class="type">EDDP_TIMESTAMP_INFO_TYPE</span>* <span class="keyword">const</span> pDest,</span>
+<span class="code-line">    <span class="keyword">const</span> <span class="type">EDDP_TIMESTAMP_INFO_TYPE</span>* <span class="keyword">const</span> pSrc)</span>
+<span class="code-line">{</span>
+<span class="code-line">    <span class="type">EDD_RSP</span> Response = EDD_STS_OK;</span>
+<span class="code-line">    <span class="type">LSA_INT32</span> i;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="keyword">if</span> ( (LSA_HOST_PTR_ARE_EQUAL(pDest, LSA_NULL)) || (LSA_HOST_PTR_ARE_EQUAL(pSrc, LSA_NULL)) )</span>
+<span class="code-line">    {</span>
+<span class="code-line">        Response = EDD_STS_ERR_PARAM;</span>
+<span class="code-line">        EDDP_USER_TRACE_02(EDDP_UNDEF_TRACE_IDX, LSA_TRACE_LEVEL_ERROR,</span>
+<span class="code-line">            <span class="string">"[H:--] EDDP_UserCmd_CopyTimeStamp(): ERROR -> pDest=0x%X pSrc=0x%X"</span>, pDest, pSrc);</span>
+<span class="code-line">    }</span>
+<span class="code-line">    <span class="keyword">else</span></span>
+<span class="code-line">    {</span>
+<span class="code-line">        pDest->TimesStamp.Status = pSrc->TimesStamp.Status;</span>
+<span class="code-line">        pDest->TimesStamp.SecondsHigh = pSrc->TimesStamp.SecondsHigh;</span>
+<span class="code-line">        pDest->TimesStamp.SecondsLow = pSrc->TimesStamp.SecondsLow;</span>
+<span class="code-line">        pDest->TimesStamp.Nanoseconds = pSrc->TimesStamp.Nanoseconds;</span>
+<span class="code-line">        </span>
+<span class="code-line">        pDest->UTCOffset = pSrc->UTCOffset;</span>
+<span class="code-line">        pDest->SyncState = pSrc->SyncState;</span>
+<span class="code-line">        pDest->SequenceID = pSrc->SequenceID;</span>
+<span class="code-line">        </span>
+<span class="code-line">        <span class="keyword">for</span> (i = 0; i < EDDP_TIME_MASTER_IDENT_SIZE; i++)</span>
+<span class="code-line">        {</span>
+<span class="code-line">            pDest->MasterIdent[i] = pSrc->MasterIdent[i];</span>
+<span class="code-line">        }</span>
+<span class="code-line">        </span>
+<span class="code-line">        <span class="keyword">for</span> (i = 0; i < EDDP_TIME_DOMAIN_IDENT_SIZE; i++)</span>
+<span class="code-line">        {</span>
+<span class="code-line">            pDest->DomainIdent[i] = pSrc->DomainIdent[i];</span>
+<span class="code-line">        }</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="keyword">return</span> (Response);</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>關鍵檔案</h4>
+                <div class="code-block">
+<span class="code-line">eddp_k32.c        <span class="comment">- K32 副核實作 (時間戳、RQB 傳輸)</span></span>
+<span class="code-line">eddp_llif.c       <span class="comment">- 低層介面</span></span>
+<span class="code-line">eddp_wrapper.c    <span class="comment">- 協議棧封裝</span></span>
+<span class="code-line">eddp_k32_fw.h     <span class="comment">- K32 韌體頭檔</span></span>
+                </div>
+            </div>
+
+            <div class="card" id="module-15">
+                <h3>15. gPTP/RSync: IEEE 1588 精確時間同步</h3>
+                <div class="file-path">src/pns/RSync/ptp1as/gptp.c</div>
+                <p><strong>核心邏輯：</strong>實現 IEEE 1588 PTP (Precision Time Protocol)，使用 `struct gPTPd` 管理每個端口的狀態，包含 BMC 演算法自動選擇最佳時鐘源。</p>
+                
+                <h4>關鍵代碼片段：清除主站 MAC</h4>
+                <div class="code-block">
+<span class="code-line"><span class="keyword">void</span> <span class="func">gptp_clearMasterMAC</span>(<span class="keyword">struct</span> gPTPd* gPTPd)</span>
+<span class="code-line">{</span>
+<span class="code-line">    <span class="keyword">memset</span>(AndMasterMAC, 0, MAC_ADR_LENGTH);</span>
+<span class="code-line">    <span class="keyword">memset</span>(AndsubdomainUUID, 0, UUID_LENGTH);</span>
+<span class="code-line">    gSyncPort = 0xFFFF;</span>
+<span class="code-line">    gPTPd->pgPTPd_common->synSeqId_last = 0;</span>
+<span class="code-line">    gPTPd->pgPTPd_common->syncSeqID_port_last = 0xff;</span>
+<span class="code-line">}</span>
+<span class="code-line"></span>
+<span class="code-line"><span class="keyword">void</span> <span class="func">setLLDPMasterMAC</span>(<span class="type">int16_t</span> diagIndId, <span class="keyword">struct</span> gPTPd* gPTPd, <span class="type">uint8_t</span> hasSubDomain)</span>
+<span class="code-line">{</span>
+<span class="code-line">    <span class="keyword">if</span> (GSY_SYNCID_NONE == gPTPd->pChUsr->SyncId)</span>
+<span class="code-line">    {</span>
+<span class="code-line">        <span class="keyword">return</span>;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    <span class="type">GSY_DRIFT_PTR</span> pDrift = AndgPTPd->pChUsr->pChSys->Drift[gPTPd->pChUsr->SyncId][0];</span>
+<span class="code-line">    </span>
+<span class="code-line">    pDrift->SyncId = gPTPd->pChUsr->SyncId;</span>
+<span class="code-line">    <span class="keyword">if</span> (hasSubDomain)</span>
+<span class="code-line">    {</span>
+<span class="code-line">        pDrift->Diag.Subdomain = 1;</span>
+<span class="code-line">        pDrift->Diag.StateSync = gPTPd->pgPTPd_common->SyncState;</span>
+<span class="code-line">        <span class="keyword">memcpy</span>(AndpDrift->MasterAddr, AndMasterMAC, MAC_ADR_LENGTH);</span>
+<span class="code-line">    }</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>BMC 狀態機 (bmc.c)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="keyword">void</span> <span class="func">initBMC</span>(<span class="keyword">struct</span> gPTPd* gPTPd)</span>
+<span class="code-line">{</span>
+<span class="code-line">  gPTPd->bmc.state = BMC_STATE_INIT;</span>
+<span class="code-line"></span>
+<span class="code-line">#<span class="keyword">ifdef</span> GPTP_PROTO</span>
+<span class="code-line">  gPTPd->bmc.announceInterval = GPTP_ANNOUNCE_INTERVAL;</span>
+<span class="code-line">  gPTPd->bmc.announceTimeout  = GPTP_ANNOUNCE_TIMEOUT;</span>
+<span class="code-line">#<span class="keyword">else</span></span>
+<span class="code-line">    gPTPd->bmc.announceInterval = gPTPd->pChUsr->Master.SendInterval * PTCP_ANNOUNCE_FACTOR;</span>
+<span class="code-line">    gPTPd->bmc.announceTimeout  = PTCP_ANNO_TIMEOUT;</span>
+<span class="code-line">#<span class="keyword">endif</span></span>
+<span class="code-line">    </span>
+<span class="code-line">}</span>
+<span class="code-line"></span>
+<span class="code-line"><span class="keyword">void</span> <span class="func">bmcHandleEvent</span>(<span class="keyword">struct</span> gPTPd* gPTPd, <span class="type">int</span> evtId)</span>
+<span class="code-line">{</span>
+<span class="code-line">  <span class="keyword">switch</span>(gPTPd->bmc.state) </span>
+<span class="code-line">  {</span>
+<span class="code-line">          <span class="keyword">case</span> BMC_STATE_INIT:</span>
+<span class="code-line">                          <span class="keyword">switch</span> (evtId) {</span>
+<span class="code-line">                                          <span class="keyword">case</span> GPTP_EVT_STATE_ENTRY:</span>
+<span class="code-line">                                                          <span class="keyword">break</span>;</span>
+<span class="code-line">                                          <span class="keyword">case</span> GPTP_EVT_BMC_ENABLE:</span>
+<span class="code-line">#<span class="keyword">ifdef</span> GPTP_PROTO</span>
+<span class="code-line">                                                          bmcHandleStateChange(gPTPd, BMC_STATE_GRAND_MASTER);</span>
+<span class="code-line">                                                          updatePrioVectors(gPTPd);</span>
+<span class="code-line">#<span class="keyword">else</span></span>
+<span class="code-line">                                                          <span class="keyword">if</span>(    (MASTER_STATE_PRIMARY == gPTPd->pChUsr->Master.State) </span>
+<span class="code-line">                                                                          || (SLAVE_STATE_SYNC     == gPTPd->pChUsr->Slave.State)</span>
+<span class="code-line">                                                                         )</span>
+<span class="code-line">                                                          {</span>
+<span class="code-line">                                                                  bmcHandleStateChange(gPTPd, BMC_STATE_GRAND_MASTER);</span>
+<span class="code-line">                                                                  updatePrioVectors(gPTPd);</span>
+<span class="code-line">                                                          }</span>
+<span class="code-line">                                                          <span class="keyword">else</span></span>
+<span class="code-line">                                                          {</span>
+<span class="code-line">                                                                  bmcSetAllPortsToSlave();</span>
+<span class="code-line">                                                          }</span>
+<span class="code-line">#<span class="keyword">endif</span></span>
+<span class="code-line">                                                          <span class="keyword">break</span>;</span>
+<span class="code-line">                                          <span class="keyword">case</span> GPTP_EVT_STATE_EXIT:</span>
+<span class="code-line">                                                          <span class="keyword">break</span>;</span>
+<span class="code-line">                                          <span class="keyword">default</span>:</span>
+<span class="code-line">          <span class="keyword">break</span>;</span>
+<span class="code-line">                  }</span>
+<span class="code-line">                  <span class="keyword">break</span>;</span>
+<span class="code-line">          </span>
+<span class="code-line">                  <span class="keyword">case</span> BMC_STATE_GRAND_MASTER:</span>
+<span class="code-line">                                  <span class="keyword">switch</span> (evtId) {</span>
+<span class="code-line">                                                  <span class="keyword">case</span> GPTP_EVT_STATE_ENTRY:</span>
+<span class="code-line">#<span class="keyword">ifdef</span> GPTP_PROTO</span>
+<span class="code-line">                                                  <span class="comment">// ... 更多狀態處理</span></span>
+<span class="code-line">#<span class="keyword">endif</span></span>
+<span class="code-line">                                                  <span class="keyword">break</span>;</span>
+<span class="code-line">                                  }</span>
+<span class="code-line">                                  <span class="keyword">break</span>;</span>
+<span class="code-line">  }</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>關鍵代碼片段：硬體時鐘同步 (Rsync.c)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="comment">/**</span></span>
+<span class="code-line"><span class="comment"> * Rsync.c: Renesas 硬體時鐘同步實作</span></span>
+<span class="code-line"><span class="comment"> * 【核心功能】</span></span>
+<span class="code-line"><span class="comment"> * 1. clock_settime(): 設定 RZ/T2 以太交換器的硬體時鐘（納秒級精度）</span></span>
+<span class="code-line"><span class="comment"> * 2. clock_gettime(): 讀取當前硬體時鐘時間</span></span>
+<span class="code-line"><span class="comment"> * 3. sendto(): 發送 PTCP/gPTP 報文，並自動附加硬體時間戳</span></span>
+<span class="code-line"><span class="comment"> * </span></span>
+<span class="code-line"><span class="comment"> * 【為什麼重要？】</span></span>
+<span class="code-line"><span class="comment"> * - IRT 等步同步的前提是所有設備共享同一個「全局時間」</span></span>
+<span class="code-line"><span class="comment"> * - RZ/T2 的以太交換器硬體支援「自動時間戳」，精度達納秒級</span></span>
+<span class="code-line"><span class="comment"> * - sendto() 會自動標記 PTCP 報文，讓硬體在發送時記錄精確時間</span></span>
+<span class="code-line"><span class="comment"> */</span></span>
+<span class="code-line"></span>
+<span class="code-line"><span class="comment">// 1. 設定硬體時鐘（由 Master 或 BMC 決定）</span></span>
+<span class="code-line"><span class="type">void</span> <span class="func">clock_settime</span>(clockid_t clkid, <span class="type">struct</span> timespec* ts) {</span>
+<span class="code-line">    R_ETHSW_Type* p_reg = (R_ETHSW_Type*)R_ETHSW;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 直接寫入以太交換器的硬體時鐘寄存器</span></span>
+<span class="code-line">    p_reg->ATIME_SEC0 = (<span class="type">uint32_t</span>)ts->tv_sec;   <span class="comment">// 秒</span></span>
+<span class="code-line">    p_reg->ATIME0     = (<span class="type">uint32_t</span>)ts->tv_nsec;  <span class="comment">// 納秒</span></span>
+<span class="code-line">}</span>
+<span class="code-line"></span>
+<span class="code-line"><span class="comment">// 2. 讀取當前硬體時鐘時間</span></span>
+<span class="code-line"><span class="type">int</span> <span class="func">clock_gettime</span>(clockid_t clk_id, <span class="type">struct</span> timespec *tp) {</span>
+<span class="code-line">    R_ETHSW_Type* p_reg = (R_ETHSW_Type*)R_ETHSW;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 觸發時鐘捕捉（CAPTURE 位）</span></span>
+<span class="code-line">    <span class="keyword">if</span> (clk_id == 0) {</span>
+<span class="code-line">        p_reg->ATIME_CTRL0 |= CAPTURE;</span>
+<span class="code-line">        <span class="keyword">while</span> (p_reg->ATIME_CTRL0 And CAPTURE);  <span class="comment">// 等待捕捉完成</span></span>
+<span class="code-line">        tp->tv_nsec = p_reg->ATIME0;</span>
+<span class="code-line">        tp->tv_sec  = p_reg->ATIME_SEC0;</span>
+<span class="code-line">    } <span class="keyword">else</span> {</span>
+<span class="code-line">        p_reg->ATIME_CTRL1 |= CAPTURE;</span>
+<span class="code-line">        <span class="keyword">while</span> (p_reg->ATIME_CTRL1 And CAPTURE);</span>
+<span class="code-line">        tp->tv_nsec = p_reg->ATIME1;</span>
+<span class="code-line">        tp->tv_sec  = p_reg->ATIME_SEC1;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    <span class="keyword">return</span> 0;</span>
+<span class="code-line">}</span>
+<span class="code-line"></span>
+<span class="code-line"><span class="comment">// 3. 發送 PTCP/gPTP 報文，自動附加硬體時間戳</span></span>
+<span class="code-line"><span class="type">ssize_t</span> <span class="func">sendto</span>(<span class="type">void</span> *buf, <span class="type">size_t</span> len, <span class="type">int</span> idx, <span class="type">struct</span> timespec *timeStamp, <span class="type">struct</span> gPTPd *gPTP) {</span>
+<span class="code-line">    ether_instance_ctrl_t *ptIfCtrl = ...;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="keyword">if</span> (timeStamp != NULL) {</span>
+<span class="code-line">        <span class="comment">// 重置時間戳隊列</span></span>
+<span class="code-line">        xQueueReset(gPTP->txTsQueue[idx]);</span>
+<span class="code-line">        </span>
+<span class="code-line">        <span class="comment">// 保存時間戳資訊（用於後續比對）</span></span>
+<span class="code-line">        gPTP->RSyncSendTime[idx].hRQB      = gPTP->txTsQueue[idx];</span>
+<span class="code-line">        gPTP->RSyncSendTime[idx].hHDB      = timeStamp;</span>
+<span class="code-line">        gPTP->RSyncSendTime[idx].TxRingIdx = idx;</span>
+<span class="code-line">        </span>
+<span class="code-line">        <span class="comment">// 判斷報文類型：Delay_Req/Resp 使用 TIMER1，其他使用 TIMER0</span></span>
+<span class="code-line">        <span class="type">uint16_t</span> frameid = htons(((RSYNC_PTCP *)buf)->PduHdr.FrameId.Word);</span>
+<span class="code-line">        <span class="keyword">if</span> (frameid == GSY_FRAMEID_DELAY_RSP || frameid == GSY_FRAMEID_DELAY_REQ) {</span>
+<span class="code-line">            ptIfCtrl->tx_manage.tim_num = ETHSW_TIMER1;</span>
+<span class="code-line">        } <span class="keyword">else</span> {</span>
+<span class="code-line">            ptIfCtrl->tx_manage.tim_num = ETHSW_TIMER0;</span>
+<span class="code-line">        }</span>
+<span class="code-line">        </span>
+<span class="code-line">        <span class="comment">// 啟用硬體時間戳功能</span></span>
+<span class="code-line">        ptIfCtrl->tx_manage.flg_func = ETHER_SWITCH_TX_FUNC_TIMESTAMP | ETHER_SWITCH_TX_FUNC_TIM_NUM;</span>
+<span class="code-line">        ptIfCtrl->tx_manage.timestamp_id = g_time_stamp_oldest_idx;</span>
+<span class="code-line">        </span>
+<span class="code-line">        <span class="comment">// 使用向量機制，避免時間戳覆蓋</span></span>
+<span class="code-line">        ptp_time_stamp_nanos[g_time_stamp_oldest_idx] = (<span class="type">uint32_t</span> *)AndgPTP->RSyncSendTime[idx];</span>
+<span class="code-line">        <span class="keyword">if</span> (++g_time_stamp_oldest_idx >= 2*NUM_TX_DESCRIPTOR) {</span>
+<span class="code-line">            g_time_stamp_oldest_idx = 0;</span>
+<span class="code-line">        }</span>
+<span class="code-line">    } <span class="keyword">else</span> {</span>
+<span class="code-line">        <span class="comment">// 非 PTCP 報文：不啟用時間戳</span></span>
+<span class="code-line">        ptIfCtrl->tx_manage.flg_func = ETHER_SWITCH_TX_FUNC_NON;</span>
+<span class="code-line">        ptIfCtrl->tx_manage.timestamp_id = 0xFF;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 發送報文（硬體自動附加時間戳）</span></span>
+<span class="code-line">    <span class="keyword">return</span> ptIf->p_api->write(ptIfCtrl, buf, len);</span>
+<span class="code-line">}</span>
+                </div>
+                
+
+                <h4>關鍵檔案</h4>
+                <div class="code-block">
+<span class="code-line">gptp.c            <span class="comment">- PTP 協議實作 (struct gPTPd, gptp_clearMasterMAC)</span></span>
+<span class="code-line">bmc.c             <span class="comment">- 最佳主時鐘演算法 (initBMC, bmcHandleEvent)</span></span>
+<span class="code-line">Rsync.c           <span class="comment">- RZ/T2 硬體時鐘同步 (clock_settime, sendto, clock_gettime)</span></span>
+<span class="code-line">gptpcmn.h         <span class="comment">- 通用函式與結構體定義</span></span>
+<span class="code-line">sync.h            <span class="comment">- 同步狀態機</span></span>
+<span class="code-line">ptp1as/           <span class="comment">- PTP 從站實作目錄</span></span>
+                </div>
+            </div>
+
+            <div class="card" id="module-16">
+                <h3>16. Storm Protection: 網路風暴防護</h3>
+                <div class="file-path">src/pns/eddp/Custom/storm_protection/storm_protection.c</div>
+                <p><strong>核心邏輯：</strong>透過軟體過濾機制監控 EtherType 封包頻率，防止 DCP、ARP 等協議的廣播風暴。支援硬體 (HW) 和軟體 (SW) 兩種過濾模式。</p>
+                
+                <h4>關鍵代碼片段：EtherType 過濾器初始化</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">LSA_VOID</span> <span class="func">EDDP_LL_EhterTypeFilterInit</span>(<span class="type">LSA_VOID</span>)</span>
+<span class="code-line">{</span>
+<span class="code-line">    <span class="keyword">if</span> (LSA_TRUE == g_EtherTypeFilterInit)</span>
+<span class="code-line">    {</span>
+<span class="code-line">        <span class="keyword">return</span>;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 清除 EtherType 過濾器表</span></span>
+<span class="code-line">    <span class="func">OsMemSet</span>(Andg_EtherTypeFiletr, 0, <span class="keyword">sizeof</span>(g_EtherTypeFiletr));</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 分配週期性計時器</span></span>
+<span class="code-line">    <span class="func">OsAllocTimer</span>(Andg_EtherTypeFilterTimerID, LSA_TIMER_TYPE_CYCLIC,</span>
+<span class="code-line">                 LSA_TIME_BASE_1MS, (<span class="type">PNIO_VOID</span>*)EDDP_LL_EtherTypeFilterTimerCoallback);</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 啟動計時器</span></span>
+<span class="code-line">    <span class="func">OsStartTimer</span>(g_EtherTypeFilterTimerID, 0, EDDP_LL_ETHER_TYPE_FILTER_TIMER);</span>
+<span class="code-line">    g_EtherTypeFilterInit = LSA_TRUE;</span>
+<span class="code-line">}</span>
+<span class="code-line"></span>
+<span class="code-line"><span class="type">EDD_RSP</span> <span class="func">EDDP_LL_AddEtherTypeFilter</span>(</span>
+<span class="code-line">    <span class="type">LSA_UINT16</span> EtherType,</span>
+<span class="code-line">    <span class="type">LSA_UINT16</span> Period,</span>
+<span class="code-line">    <span class="type">LSA_UINT32</span> FrameLimit)</span>
+<span class="code-line">{</span>
+<span class="code-line">    <span class="type">LSA_UINT16</span> FilterCount;</span>
+<span class="code-line">    <span class="type">EDDP_ETHER_TYPE_FILTER_PTR_TYPE</span> pFilter;</span>
+<span class="code-line">    <span class="type">EDDP_ETHER_TYPE_FILTER_PTR_TYPE</span> pEntryFilter;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="keyword">if</span>(htons(ETH_TYPE_IPV4) > EtherType)</span>
+<span class="code-line">    {</span>
+<span class="code-line">        <span class="keyword">return</span> EDD_STS_ERR_PARAM;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="keyword">if</span>(0 == Period)</span>
+<span class="code-line">    {</span>
+<span class="code-line">        <span class="keyword">return</span> EDD_STS_ERR_PARAM;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    pEntryFilter = LSA_NULL;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="keyword">for</span>(FilterCount = 0, pFilter = Andg_EtherTypeFiletr[0]; FilterCount < EDDP_LL_ETHER_TYPE_FILTER_MAX; FilterCount++,pFilter++)</span>
+<span class="code-line">    {</span>
+<span class="code-line">        <span class="keyword">if</span>(0 == pFilter->EtherType AndAnd LSA_NULL == pEntryFilter)</span>
+<span class="code-line">        {</span>
+<span class="code-line">            pEntryFilter = pFilter;</span>
+<span class="code-line">        }</span>
+<span class="code-line">        <span class="keyword">else if</span>(EtherType == pFilter->EtherType)</span>
+<span class="code-line">        {</span>
+<span class="code-line">            pEntryFilter = pFilter;</span>
+<span class="code-line">            <span class="keyword">break</span>;</span>
+<span class="code-line">        }</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="keyword">if</span>(LSA_NULL == pEntryFilter)</span>
+<span class="code-line">    {</span>
+<span class="code-line">        <span class="keyword">return</span> EDD_STS_ERR_RESOURCE;</span>
+<span class="code-line">    }</span>
+<span class="code-line">    </span>
+<span class="code-line">    pEntryFilter->EtherType         = 0;    <span class="comment">// Clear once in case it is referenced during filter update</span></span>
+<span class="code-line">    pEntryFilter->FilterPeriod      = Period;</span>
+<span class="code-line">    pEntryFilter->FrameLimit        = FrameLimit;</span>
+<span class="code-line">    pEntryFilter->FrameCounter      = 0;</span>
+<span class="code-line">    pEntryFilter->EtherType         = EtherType;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="keyword">return</span> EDD_STS_OK;</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>防護機制</h4>
+                <div class="code-block">
+<span class="code-line">IOD_INCLUDE_STORM_FILTER_DCP_SW   <span class="comment">- DCP 協議軟體過濾</span></span>
+<span class="code-line">IOD_INCLUDE_STORM_FILTER_ARP_HW   <span class="comment">- ARP 協議硬體過濾</span></span>
+<span class="code-line">IOD_INCLUDE_STORM_FILTER_ETHER_SW <span class="comment">- EtherType 軟體過濾</span></span>
+                </div>
+            </div>
+
+                        <div class="card" id="module-17">
+                <h3>17. GSDML: 設備描述與程式碼對應</h3>
+                <div class="file-path">src/ext/EK52/pn_ioddevkits/src/application/App_common/iod_cfg.h</div>
+                <p><strong>核心邏輯：</strong>GSDML XML 檔案定義設備參數，但**實際值必須在 C 程式碼中同步定義**。`iod_cfg.h` 中的 `IOD_CFG_VENDOR_ID` 和 `IOD_CFG_DEVICE_ID` 必須與 GSDML 完全一致，否則主站無法識別設備。</p>
+                
+                <h4>真實代碼：VendorID/DeviceID 定義 (iod_cfg.h)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="comment">/**</span></span>
+<span class="code-line"><span class="comment"> * @brief Vendor ID</span></span>
+<span class="code-line"><span class="comment"> *</span></span>
+<span class="code-line"><span class="comment"> * must fit to GSDML file</span></span>
+<span class="code-line"><span class="comment"> */</span></span>
+<span class="code-line"><span class="preproc">#define</span> IOD_CFG_VENDOR_ID                       <span class="number">0x02C7</span></span>
+<span class="code-line"></span>
+<span class="code-line"><span class="comment">/**</span></span>
+<span class="code-line"><span class="comment"> * @brief Device ID</span></span>
+<span class="code-line"><span class="comment"> *</span></span>
+<span class="code-line"><span class="comment"> * must fit to GSDML file</span></span>
+<span class="code-line"><span class="comment"> */</span></span>
+<span class="code-line"><span class="preproc">#ifdef</span> UPD60620_PHY</span>
+<span class="code-line"><span class="preproc">#define</span> IOD_CFG_DEVICE_ID                       <span class="number">0x0004</span></span>
+<span class="code-line"><span class="preproc">#else</span>  </span>
+<span class="code-line"><span class="preproc">#define</span> IOD_CFG_DEVICE_ID                       <span class="number">0x0003</span></span>
+<span class="code-line"><span class="preproc">#endif</span></span>
+                </div>
+                
+                <h4>GSDML 與程式碼對應關係</h4>
+                <div class="code-block">
+<span class="code-line"><span class="comment">/* GSDML XML (Line 28) */</span></span>
+<span class="code-line"><span class="tag">Andlt;DeviceIdentity VendorID="0x02C7" DeviceID="0x0003"Andgt;</span></span>
+<span class="code-line"></span>
+<span class="code-line"><span class="comment">/* C程式碼 (iod_cfg.h Line 269, 279) */</span></span>
+<span class="code-line"><span class="preproc">#define</span> IOD_CFG_VENDOR_ID   <span class="number">0x02C7</span>  <span class="comment">// 必須與 GSDML 一致</span></span>
+<span class="code-line"><span class="preproc">#define</span> IOD_CFG_DEVICE_ID   <span class="number">0x0003</span>  <span class="comment">// 必須與 GSDML 一致</span></span>
+                </div>
+                
+                <h4>關鍵參數在程式碼中的使用位置</h4>
+                <div class="code-block">
+<span class="code-line"><span class="comment">// usriod_main.c Line 239: 設備識別資料結構</span></span>
+<span class="code-line">{IOD_CFG_VENDOR_ID,                   <span class="comment">// PNIO_UINT16 VendorId</span></span>
+<span class="code-line"> IOD_CFG_DEV_ANNOTATION_ORDER_ID,     <span class="comment">// PNIO_UINT8 OrderId[20]</span></span>
+<span class="code-line"> DEVKIT_PRODUCTSERIALNUMBER,          <span class="comment">// PNIO_UINT8 SerNum[16]</span></span>
+<span class="code-line"> DEVKIT_HW_REVISION,                  <span class="comment">// PNIO_UINT16 HwRevision</span></span>
+<span class="code-line"> <span class="comment">// ... 更多 IM (Identification Model) 資料</span></span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>真實檔案清單</h4>
+                <div class="code-block">
+<span class="code-line">GSDML-V2.44-RENESAS-RZT2-VSC8541-20260116.xml   <span class="comment">- RZ/T2 + VSC8541 PHY (DeviceID=0x0003)</span></span>
+<span class="code-line">GSDML-V2.44-RENESAS-RZT2-UPD60620-20260116.xml  <span class="comment">- RZ/T2 + UPD60620 PHY (DeviceID=0x0004)</span></span>
+<span class="code-line">iod_cfg.h                                       <span class="comment">- C程式碼定義 (必須與GSDML一致)</span></span>
+                </div>
+            </div>
+
+</section>
+
+        <!-- 板塊三：資料流與流程圖 -->
+        <section id="data-flow">
+            <h2>模組間資料流程圖表</h2>
+
+            <h3>1. 系統初始化流程圖</h3>
+            <div class="mermaid-wrapper" id="mermaid-1">
+                
+                <div class="mermaid-container">
+<div class="mermaid">
+
+flowchart TD
+    Start([系統啟動]) --> Init[EDDP_CoreDevSetupStateMachine]
+    Init --> StateStart{State: SETUP_START}
+    StateStart --> Reset[重置組件計數]
+    Reset --> Loop{FctTblIdx < TableSize?}
+    Loop -->|Yes| GetFct[獲取初始化函數]
+    GetFct --> CallFct[呼叫 DeviceSetupFct]
+    CallFct --> CheckResult{結果 == OK?}
+    CheckResult -->|Yes| IncIdx[索引 +1]
+    IncIdx --> Loop
+    CheckResult -->|No| Shutdown[進入關閉流程]
+    Shutdown --> ErrorEnd([初始化失敗])
+    Loop -->|No| SuccessEnd([初始化成功])
+</div>
+                </div>
+            </div>
+
+            <h3>2. 警報接收處理流程</h3>
+            <div class="mermaid-wrapper" id="mermaid-2">
+                
+                <div class="mermaid-container">
+<div class="mermaid">
+
+flowchart TD
+    NetIn[網路封包] --> EDD[EDD 驅動]
+    EDD --> ACP[acp_nrt_recv_indication]
+    ACP --> MAC{MAC 匹配？}
+    MAC -->|No| Drop[丟棄]
+    MAC -->|Yes| Parse[acp_rta_header_parse]
+    Parse --> Type{FrameID 類型？}
+    Type -->|High| HighQ[高優先級隊列]
+    Type -->|Low| LowQ[低優先級隊列]
+    HighQ --> RTA[RTA 狀態機]
+    LowQ --> RTA
+    RTA --> PNDV[PNDV_AR 處理]
+    PNDV --> App[應用層]
+</div>
+                </div>
+            </div>
+
+            <h3>3. 核心結構體關係</h3>
+            <div class="mermaid-wrapper" id="mermaid-3">
+                
+                <div class="mermaid-container">
+<div class="mermaid">
+
+classDiagram
+    class PNDV_DATA_T {
+        +AR_T ar[MAX_AR]
+        +DIAG_T diag
+        +CFG_T cfg
+    }
+    class AR_T {
+        +UINT32 ar_idx
+        +RQB_PTR_TYPE con_ind_rqb_ptr
+    }
+    class TSKMA_DATA_S_T {
+        +cold_start.done
+        +ts_state
+    }
+    class GDMA_DATA_T {
+        +gdma_active_job_pool_idx
+        +gdma_job_done_callbacks
+    }
+    class EVMA_DATA_T {
+        +callbacks[8]
+        +callback_args[8]
+    }
+    class RQB_T {
+        +ref_cnt
+        +prio
+        +pData
+        +data_len
+        +frame_id
+    }
+    PNDV_DATA_T "1" *-- "MAX_AR" AR_T
+    TSKMA_DATA_S_T "1" *-- "11" TaskInfo
+    GDMA_DATA_T "1" *-- "JOB_LIST" Jobs
+    EVMA_DATA_T "1" *-- "8" Callbacks
+    RQB_T "1" --* "N" PNDV_DATA_T
+</div>
+                </div>
+            </div>
+
+            <h3>4. 完整系統資料流（含所有模組）</h3>
+            <div class="mermaid-wrapper" id="mermaid-4">
+                
+                <div class="mermaid-container">
+<div class="mermaid">
+
+flowchart TD
+    subgraph 初始化流程
+        Boot([系統啟動]) --> EDDP[EDDP_CoreDevSetupStateMachine]
+        EDDP --> TSKMA[TSKMA 任務初始化]
+        TSKMA --> GDMA[GDMA DMA 配置]
+        GDMA --> EVMA[EVMA 計時器註冊]
+        EVMA --> ACP_LL[ACP_LL RQB 池建立]
+        ACP_LL --> CM_DCP[CM_DCP 設備註冊]
+        CM_DCP --> PNDV[PNDV AR 初始化]
+    end
+
+    subgraph 資料接收流程
+        Packet[網路封包] --> EDD[EDD 驅動]
+        EDD --> ACP_NRT[acp_nrt_recv_indication]
+        ACP_NRT --> MAC{MAC 匹配？}
+        MAC -->|No| Drop[丟棄]
+        MAC -->|Yes| Parse[acp_rta_header_parse]
+        Parse --> Type{FrameID 類型？}
+        Type -->|RT| RTA[ACP_RTA 狀態機]
+        Type -->|NRT| EDDP_NRT[EDDP 非實時處理]
+        RTA --> PNDV_PROC[PNDV_AR 處理]
+        EDDP_NRT --> PNDV_PROC
+        PNDV_PROC --> App[應用層]
+    end
+
+    subgraph 配置與監控
+        DCP_Req[DCP 請求] --> CM_DCP_PROC[CM_DCP 處理]
+        CM_DCP_PROC --> GET{GET/SET?}
+        GET -->|GET| Read[讀取設備資訊]
+        GET -->|SET| Write[寫入配置]
+        Read --> Response[發送回應]
+        Write --> Response
+        Response --> EDD[EDD 驅動]
+        
+        Timer[PNPLL 中斷] --> EVMA_ISR[EVMA 中斷服務]
+        EVMA_ISR --> Callback[調用回調函數]
+        Callback --> GDMA_TRIG[觸發 DMA 轉移]
+        GDMA_TRIG --> EDD
+    end
+
+    初始化流程 ==> 資料接收流程
+    初始化流程 ==> 配置與監控
+</div>
+                </div>
+            </div>
+
+            <h3>5. 模組依賴關係圖</h3>
+            <div class="mermaid-wrapper" id="mermaid-5">
+                
+                <div class="mermaid-container">
+<div class="mermaid">
+
+graph LR
+    subgraph 底層
+        ACP_LL[ACP_LL<br/>底層接口]
+    end
+
+    subgraph 硬體抽象
+        GDMA[GDMA<br/>DMA 控制]
+        EVMA[EVMA<br/>事件管理]
+    end
+
+    subgraph 協議棧
+        ACP_RTA[ACP_RTA<br/>RTA 協議]
+        CM_DCP[CM_DCP<br/>發現協議]
+        EDDP[EDDP<br/>數據路徑]
+    end
+
+    subgraph 應用層
+        PNDV[PNDV<br/>設備視角]
+        TSKMA[TSKMA<br/>任務管理]
+    end
+
+    ACP_LL --> GDMA
+    ACP_LL --> EVMA
+    ACP_LL --> ACP_RTA
+    ACP_LL --> CM_DCP
+    ACP_LL --> EDDP
+    GDMA --> EDDP
+    EVMA --> EDDP
+    ACP_RTA --> PNDV
+    CM_DCP --> PNDV
+    EDDP --> PNDV
+    TSKMA --> ACP_LL
+    TSKMA --> GDMA
+    TSKMA --> EVMA
+    TSKMA --> ACP_RTA
+    TSKMA --> CM_DCP
+    TSKMA --> EDDP
+    TSKMA --> PNDV
+
+    style ACP_LL fill:#fee2e2
+    style GDMA fill:#d1fae5
+    style EVMA fill:#d1fae5
+    style ACP_RTA fill:#dbeafe
+    style CM_DCP fill:#dbeafe
+    style EDDP fill:#dbeafe
+    style PNDV fill:#fef3c7
+    style TSKMA fill:#f3e8ff
+</div>
+                </div>
+            </div>
+
+            <h3>6. gPTP 時鐘同步流程 (RSync)</h3>
+            <div class="mermaid-wrapper" id="mermaid-6">
+                
+                <div class="mermaid-container">
+<div class="mermaid">
+flowchart TD
+    subgraph BMC_State_Machine
+        Start([Start]) --> BMC_Init[initBMC]
+        BMC_Init --> BMC_Enable[BMC Enable]
+        BMC_Enable --> State{State?}
+        State -->|Best Master| GM[Grand Master]
+        State -->|Not Best| S[Slave]
+    end
+
+    subgraph Master_Behavior
+        GM --> SendSync[Send Sync]
+        SendSync --> SendFollowUp[Send Follow_Up]
+        SendFollowUp --> SendAnnounce[Send Announce]
+    end
+
+    subgraph Slave_Behavior
+        S --> RecvSync[Recv Sync t1]
+        RecvSync --> RecvFollowUp[Recv Follow_Up t1']
+        RecvFollowUp --> SendDelayReq[Send Delay_Req t3]
+        SendDelayReq --> RecvDelayResp[Recv Delay_Resp t4]
+    end
+
+    subgraph Clock_Calc
+        RecvDelayResp --> CalcDelay[Calc Delay]
+        CalcDelay --> CalcOffset[Calc Offset]
+        CalcOffset --> ClockSet[clock_settime]
+    end
+
+    SendAnnounce -.-> BMC_Enable
+    ClockSet --> S
+
+    style BMC_Init fill:#e0e7ff
+    style GM fill:#d1fae5
+    style S fill:#fee2e2
+    style SendSync fill:#dbeafe
+    style ClockSet fill:#fef3c7
+</div>
+                </div>
+            </div>
+
+            <h3>7. IRT 週期資料交換流程 (時序圖)</h3>
+            <div class="mermaid-wrapper" id="mermaid-7">
+                
+                <div class="mermaid-container">
+<div class="mermaid">
+sequenceDiagram
+    participant M as Master
+    participant S as Stack
+    participant E as EDDP
+    participant H as Hardware
+    participant A as App
+    participant P as PNDV
+
+    M->>S: Send Data
+    S->>H: Receive
+    H->>H: Timestamp
+    H->>E: Forward
+    E->>E: Decode
+    E->>S: Return
+    S->>P: Process
+    P->>A: Read
+
+    A->>P: Write
+    P->>S: Prepare
+    S->>E: Prep
+    E->>H: Send
+    H->>H: Timestamp
+    H->>M: Response
+</div>
+                </div>
+            </div>
+            
+
+            </section>
+
+    </main>
+
+    <script>
+        // Mermaid initialization
+        mermaid.initialize({ 
+    startOnLoad: true, 
+    theme: 'default', 
+    themeVariables: {
+        fontSize: '14px',
+        primaryColor: '#e0e7ff',
+        primaryBorderColor: '#3b82f6',
+        secondaryColor: '#d1fae5',
+        secondaryBorderColor: '#10b981',
+        tertiaryColor: '#fef3c7',
+        tertiaryBorderColor: '#f59e0b',
+        mainBkg: '#f3e8ff',
+        mainBorderColor: '#a855f7',
+        altBackground: '#fef3c7',
+        altBorderColor: '#f59e0b'
+    }
+});
+
+        // Navigation (smooth scroll to sections)
+        const navItems = document.querySelectorAll('.nav-item');
+        
+        navItems.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetId = item.getAttribute('href').substring(1);
+                
+                navItems.forEach(nav => nav.classList.remove('active'));
+                item.classList.add('active');
+                
+                const targetSection = document.getElementById(targetId);
+                if (targetSection) {
+                    targetSection.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        const searchResultsInline = document.getElementById('search-results-inline');
+        const searchResultsSection = document.getElementById('search-results');
+        const searchMessage = document.getElementById('search-message');
+        const resultsContainer = document.getElementById('search-results-container');
+
+        const knowledgeBase = [
+            // === 核心模組：PNDV (設備視角管理) ===
+            { 
+                keywords: ['PNDV', 'pndv_ar', '設備視角', 'device view', 'ar', 'application relation', '生命週期', 'alarms', '警報', '配置', 'pndv_dat.h', 'pndv_ar.c'], 
+                title: 'PNDV: 設備視角與 AR 管理', 
+                content: '管理 PROFINET 設備視角、AR (Application Relation) 生命週期、警報處理與配置數據。核心結構體 PNDV_DATA_T 位於共享記憶體。', 
+                file: 'pndv_ar.c', 
+                line: 100 
+            },
+            // === 核心模組：TSKMA (任務管理) ===
+            { 
+                keywords: ['TSKMA', 'tskma', '任務管理', 'task management', 'boot', '啟動', '雙核', 'multi-core', 'core', 'tskma.c', 'os_cfg.h'], 
+                title: 'TSKMA: 任務管理與啟動序列', 
+                content: '管理 11 個核心任務 (APP, RBT, PSI, EDDP 等)，控制雙核啟動序列，確保模組依賴關係正確。', 
+                file: 'tskma.c', 
+                line: 53 
+            },
+            // === 核心模組：GDMA (DMA 控制) ===
+            { 
+                keywords: ['GDMA', 'gdma', 'DMA', 'direct memory access', '中斷', 'interrupt', 'ISR', 'gdma.c', 'dma_transfer'], 
+                title: 'GDMA: 硬體 DMA 管理', 
+                content: '管理硬體 DMA 轉移，支援多種觸發源，處理中斷服務常式 (ISR) 並調用回調函數。', 
+                file: 'gdma.c', 
+                line: 94 
+            },
+            // === 核心模組：EVMA (事件管理) ===
+            { 
+                keywords: ['EVMA', 'evma', '事件管理', 'event management', 'alarm', '警報', 'pnpll', '計時器', 'evma.c'], 
+                title: 'EVMA: 事件與計時器管理', 
+                content: '管理系統事件、警報通知，並與 PNPLL 計時器整合，處理定時任務與超時機制。', 
+                file: 'evma.c', 
+                line: 78 
+            },
+            // === 核心模組：ACP_RTA (RTA 協議層) ===
+            { 
+                keywords: ['ACP_RTA', 'acp_rta', 'RTA', 'real-time', '實時通訊', 'rqb', 'queue', '警報確認', 'ack', 'acp_rta.c', 'acp_low.h'], 
+                title: 'ACP_RTA: 實時通訊協議', 
+                content: '實現 PROFINET RTA 實時通訊協議，管理 RQB 隊列、序列號、警報確認與狀態機。', 
+                file: 'acp_rta.c', 
+                line: 111 
+            },
+            // === 核心模組：CM_DCP (發現協議) ===
+            { 
+                keywords: ['CM_DCP', 'cm_dcp', 'DCP', 'discovery', '發現協議', '配置', 'identify', 'get', 'set', 'cm_dcp.c'], 
+                title: 'CM_DCP: 發現與配置協議', 
+                content: '實現 DCP (Discovery and Configuration Protocol)，支援 Identify、GET、SET 服務，用於設備發現與參數配置。', 
+                file: 'cm_dcp.c', 
+                line: 79 
+            },
+            // === 核心模組：EDDP (數據路徑) ===
+            { 
+                keywords: ['EDDP', 'eddp', '數據路徑', 'data path', 'IRT', 'real-time', '週期數據', 'state machine', 'eddp_core_sm.c', 'hal'], 
+                title: 'EDDP: 數據路徑與 IRT 控制', 
+                content: '管理 IRT 實時數據路徑，控制週期數據發送/接收，整合 HAL 層與狀態機。', 
+                file: 'eddp_core_sm.c', 
+                line: 196 
+            },
+            // === 核心模組：ACP_LL (低層協議) ===
+            { 
+                keywords: ['ACP_LL', 'acp_ll', 'low layer', '低層', 'ethernet', 'eth', 'mac', 'acp_low.h', 'acp_nrt.c'], 
+                title: 'ACP_LL: 低層協議與網路存取', 
+                content: '提供低層網路存取介面，處理 Ethernet 幀、MAC 地址過濾，整合非實時 (NRT) 通訊。', 
+                file: 'acp_low.h', 
+                line: 45 
+            },
+            // === 應用模組：PROFIdrive ===
+            { 
+                keywords: ['PROFIdrive', 'profidrive', '應用層', 'application', 'profile', '驅動', 'motion', 'sync', 'profidrive.c'], 
+                title: 'PROFIdrive: 驅動應用層', 
+                content: '實現 PROFIdrive 應用層規範，支援驅動控制、運動控制、同步操作等專業功能。', 
+                file: 'profidrive.c', 
+                line: 120 
+            },
+            // === 應用模組：App Common ===
+            { 
+                keywords: ['App Common', 'app common', '應用通用', 'utility', '工具函式', 'log', 'debug', 'app_common.c'], 
+                title: 'App Common: 應用通用工具', 
+                content: '提供應用層通用工具函式，包括日誌記錄、除錯資訊、數據轉換等公共功能。', 
+                file: 'app_common.c', 
+                line: 55 
+            },
+            // === 應用模組：PN-PB (協議核心) ===
+            { 
+                keywords: ['PN-PB', 'pn-pb', 'protocol base', '協議核心', 'state machine', '狀態機', 'io', 'pn_pb.c'], 
+                title: 'PN-PB: 協議核心狀態機', 
+                content: '實現 PROFINET 協議核心狀態機，管理 IO 數據交換、通訊週期與協議狀態轉換。', 
+                file: 'pn_pb.c', 
+                line: 210 
+            },
+            // === 應用模組：IOM (IO Manager) ===
+            { 
+                keywords: ['IOM', 'iom', 'IO Manager', 'io manager', '模組管理', 'submodule', 'data exchange', 'iom.c', 'iom_cfg.h'], 
+                title: 'IOM: IO 模組管理', 
+                content: '管理 IO 模組與子模組，處理數據交換、模組配置與狀態監控。', 
+                file: 'iom_interface.c', 
+                line: 88 
+            },
+            // === 關鍵模組：封包解析與非實時通訊 (ACP_NRT) ===
+            { 
+                keywords: ['ACP_NRT', 'acp_nrt', '封包解析', 'packet parsing', 'NRT', 'non-real-time', 'ethernet frame', 'MAC', 'acp_nrt.c', 'recv_indication'], 
+                title: 'ACP_NRT: 封包解析與非實時通訊', 
+                content: '處理非實時 (NRT) 封包解析。關鍵函式 acp_nrt_recv_indication() 負責接收 Eth 幀，進行 MAC 檢查並分發至 RTA 或 NRT 處理流程。', 
+                file: 'acp_nrt.c', 
+                line: 519 
+            },
+            // === 關鍵模組：應用層共享記憶體 (PnUsr) ===
+            { 
+                keywords: ['PnUsr', '共享記憶體', 'shared memory', '應用層 API', 'PnUsr_SharedMemory', 'app', 'pns'], 
+                title: 'PnUsr: 應用層共享記憶體介面', 
+                content: '應用層與協議棧的數據交換介面。PNDV_DATA_T 結構體位於此，供應用程式存取設備視角數據。', 
+                file: 'PnUsr_SharedMemory.c', 
+                line: 70 
+            },
+            // === 關鍵模組：EDDP 核心實作 (pns) ===
+            { 
+                keywords: ['EDDP', 'eddp', '數據路徑', 'data path', 'IRT', 'k32', '副核', 'eddp_k32.c', 'eddp_llif.c', 'pns'], 
+                title: 'EDDP (pns): 數據路徑與硬體加速', 
+                content: 'EDDP 在 pns 目錄的實作。eddp_k32.c 處理副核 (K32) 的硬體加速，eddp_llif.c 負責低層介面。', 
+                file: 'eddp_k32.c', 
+                line: 120 
+            },
+            // === 關鍵模組：時間同步 (gPTP/RSync) ===
+            { 
+                keywords: ['gPTP', 'PTP', 'RSync', '時間同步', 'IEEE 1588', 'bmc', 'gptp.c', 'RSync', 'pns'], 
+                title: 'gPTP/RSync: 精確時間同步', 
+                content: '實現 IEEE 1588 PTP 協議。gptp.c 處理時間同步，bmc.c 實現最佳主時鐘 (BMC) 演算法。', 
+                file: 'gptp.c', 
+                line: 85 
+            },
+            // === 關鍵模組：GSDML 設備描述 ===
+            { 
+                keywords: ['GSDML', 'GSD', '設備描述', 'device description', 'XML', 'gsdml', 'PROFINET'], 
+                title: 'GSDML: 設備描述檔', 
+                content: 'PROFINET 設備描述檔 (XML)，定義設備模組、數據點、參數。主站 (如 TIA Portal) 依此識別設備。', 
+                file: 'GSDML-V2.44-RENESAS-RZT2-VSC8541-20260116.xml', 
+                line: 1 
+            },
+            // === 關鍵模組：網路風暴防護 ===
+            { 
+                keywords: ['storm', '風暴防護', 'storm protection', 'network', 'pns'], 
+                title: 'Storm Protection: 網路風暴防護', 
+                content: '防止網路風暴導致系統崩潰。監控流量異常並自動過濾異常封包。', 
+                file: 'storm_protection.c', 
+                line: 50 
+            },
+            // === 關鍵模組：協議核心 (PN-PB) ===
+            { 
+                keywords: ['PN-PB', 'pnpb', 'protocol base', '協議核心', 'state machine', '狀態機', 'io', 'pnpb.c', 'pnpb.h', 'pnpb_api.c'], 
+                title: 'PN-PB: 協議核心狀態機', 
+                content: '實現 PROFINET 協議核心狀態機，管理 IO 數據交換、通訊週期與協議狀態轉換。', 
+                file: 'pnpb_lib_main.c', 
+                line: 210 
+            },
+            // === 關鍵模組：EDDP 非實時處理 ===
+            { 
+                keywords: ['EDDP_NRT', 'eddp_nrt', '非實時', 'nrt', 'data path', 'IRT', '週期數據', 'eddp_nrt.c', 'eddp_nrt_rcv.c', 'eddp_nrt_snd.c'], 
+                title: 'EDDP_NRT: 非實時數據路徑', 
+                content: '處理 EDDP 模組的非實時數據接收與發送，整合 IRT 週期數據與非實時通訊。', 
+                file: 'eddp_nrt.c', 
+                line: 150 
+            },
+            // === 關鍵模組：RQB/RDB 封包結構 ===
+            { 
+                keywords: ['RQB', 'RDB', 'request block', 'response block', '封包結構', 'buffer', 'acp_low.h', 'acp.h', 'acp_low.c'], 
+                title: 'RQB/RDB: 請求與回應封包結構', 
+                content: 'RQB (Request Block) 與 RDB (Response Block) 是 SDK 內部模組間通訊的核心結構，包含封包頭、長度、序列號與數據區。', 
+                file: 'acp_low.h', 
+                line: 45 
+            },
+            // === 通用概念 ===
+            { 
+                keywords: ['初始化', 'init', 'setup', 'boot', '啟動', 'eddp_core_sm.c'], 
+                title: '系統初始化', 
+                content: '通過 EDDP_CoreDevSetupStateMachine 控制，依序啟動 HAL、定時器、中斷等模組。', 
+                file: 'eddp_core_sm.c', 
+                line: 196 
+            },
+            { 
+                keywords: ['雙核', 'dual-core', 'multi-core', 'core', 'tskma.c'], 
+                title: '雙核架構', 
+                content: 'RZ/T2 採用雙核架構，主核運行 PROFINET 協議棧，副核處理硬體加速。', 
+                file: 'tskma.c', 
+                line: 53 
+            },
+            { 
+                keywords: ['shared memory', '共享記憶體', 'pndv_dat.h'], 
+                title: '共享記憶體', 
+                content: 'PNDV_DATA_T 結構體位於共享記憶體，供多個核心存取。', 
+                file: 'pndv_dat.h', 
+                line: 70 
+            },
+            { 
+                keywords: ['警報', 'alarm', 'ack', 'acp_rta.c'], 
+                title: '警報處理', 
+                content: 'ACP_RTA 狀態機管理警報的發送、接收與確認流程。', 
+                file: 'acp_rta.c', 
+                line: 111 
+            },
+            { 
+                keywords: ['boot sequence', '啟動序列', 'tskma.c'], 
+                title: '啟動序列', 
+                content: '冷啟動時，TSKMA 依序啟動 11 個核心任務，確保依賴關係正確。', 
+                file: 'tskma.c', 
+                line: 53 
+            },
+            { 
+                keywords: ['DMA', 'gdma', 'gdma.c'], 
+                title: 'DMA 轉移', 
+                content: 'GDMA 模組管理硬體 DMA 轉移，支援多種觸發源。', 
+                file: 'gdma.c', 
+                line: 94 
+            },
+            { 
+                keywords: ['中斷', 'interrupt', 'ISR', 'gdma.c'], 
+                title: '中斷處理', 
+                content: 'GDMA 中斷服務常式處理轉移完成事件並調用回調函數。', 
+                file: 'gdma.c', 
+                line: 94 
+            },
+            { 
+                keywords: ['任務', 'task', 'thread', 'tskma.c'], 
+                title: '任務管理', 
+                content: 'TSKMA 管理 11 個核心任務，包括 APP、RBT、PSI、EDDP 等。', 
+                file: 'tskma.c', 
+                line: 74 
+            },
+            { 
+                keywords: ['RQB', 'queue', 'acp_low.h'], 
+                title: 'RQB 隊列', 
+                content: 'RQB (Request Block) 用於模組間通訊和緩衝區管理。', 
+                file: 'acp_low.h', 
+                line: 45 
+            },
+            { 
+                keywords: ['DCP', 'discovery', 'cm_dcp.c'], 
+                title: 'DCP 協議', 
+                content: 'CM_DCP 實現發現與配置協議，支援 Identify、GET、SET 服務。', 
+                file: 'cm_dcp.c', 
+                line: 79 
+            },
+            { 
+                keywords: ['AR', 'application relation', 'pndv_ar.c'], 
+                title: 'AR 生命週期', 
+                content: 'PNDV_AR 管理 AR 的建立、數據交換與拆除流程。', 
+                file: 'pndv_ar.c', 
+                line: 100 
+            },
+            { 
+                keywords: ['RTA', 'real-time', 'acp_rta.c'], 
+                title: 'RTA 通訊', 
+                content: 'ACP_RTA 實現實時通訊協議，管理序列號與確認機制。', 
+                file: 'acp_rta.c', 
+                line: 111 
+            }
+        ];
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            
+            if (query.length < 2) {
+                searchResultsInline.innerHTML = '';
+                searchResultsInline.style.display = 'none';
+                resultsContainer.innerHTML = '';
+                searchMessage.classList.add('hidden');
+                return;
+            }
+
+            const results = knowledgeBase.filter(item => 
+                item.keywords.some(keyword => keyword.includes(query) || query.includes(keyword))
+            );
+
+            // Update inline dropdown
+            if (results.length === 0) {
+                searchResultsInline.innerHTML = '<div class="result-item" style="color:#64748b;text-align:center;">未找到相關結果</div>';
+                searchResultsInline.style.display = 'block';
+            } else {
+                searchResultsInline.style.display = 'block';
+                searchResultsInline.innerHTML = results.map(result => `
+                    <div class="result-item" onclick="scrollToSection('${result.file}', '${result.title}')">
+                        <div class="result-title">${result.title}</div>
+                        <div class="result-file">${result.file}:${result.line}</div>
+                        <div class="result-content">${result.content}</div>
+                    </div>
+                `).join('');
+            }
+
+            // Also update bottom section (for completeness)
+            if (results.length === 0) {
+                resultsContainer.innerHTML = '';
+                searchMessage.classList.remove('hidden');
+            } else {
+                searchMessage.classList.add('hidden');
+                resultsContainer.innerHTML = results.map(result => `
+                    <div class="result-item">
+                        <div class="result-title">${result.title}</div>
+                        <div class="result-file">${result.file}:${result.line}</div>
+                        <div class="result-content">${result.content}</div>
+                    </div>
+                `).join('');
+            }
+        });
+
+        // 模組名稱到 ID 的映射表 (用於搜尋結果精確跳轉)
+        const moduleMap = {
+            'PNDV': 'module-1',
+            'PNDV_AR': 'module-1',
+            'AR 生命週期': 'module-1',
+            '警報狀態機': 'module-1',
+            'TSKMA': 'module-2',
+            '任務管理': 'module-2',
+            'GDMA': 'module-3',
+            'DMA 控制': 'module-3',
+            'EVMA': 'module-4',
+            '事件管理': 'module-4',
+            'ACP_RTA': 'module-5',
+            'RTA 協議': 'module-5',
+            'CM_DCP': 'module-6',
+            '發現協議': 'module-6',
+            'EDDP': 'module-7',
+            '數據路徑': 'module-7',
+            'ACP_LL': 'module-8',
+            '低層協議': 'module-8',
+            'PROFIdrive': 'module-9',
+            '應用層': 'module-9',
+            'App Common': 'module-10',
+            '應用通用': 'module-10',
+            'PN-PB': 'module-11',
+            '協議核心': 'module-11',
+            'IOM': 'module-12',
+            'IO Manager': 'module-12'
+        };
+
+        function scrollToSection(file, title) {
+            let targetId = null;
+            
+            // 1. 嘗試從 title 或 file 中匹配模組名稱
+            const searchTitle = title.toUpperCase();
+            const searchFile = file.toUpperCase();
+            
+            for (const [key, id] of Object.entries(moduleMap)) {
+                if (searchTitle.includes(key.toUpperCase()) || searchFile.includes(key.toUpperCase())) {
+                    targetId = id;
+                    break;
+                }
+            }
+            
+            // 2. 如果沒有匹配，預設跳轉到 code-deep-dive
+            if (!targetId) {
+                targetId = 'code-deep-dive';
+                console.warn(`No specific module found for "${title}", defaulting to code-deep-dive`);
+            }
+            
+            // 3. 滾動到目標元素
+            const target = document.getElementById(targetId);
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                console.error(`Target element #${targetId} not found!`);
+                // 如果找不到，嘗試跳轉到 code-deep-dive
+                const fallback = document.getElementById('code-deep-dive');
+                if (fallback) fallback.scrollIntoView({ behavior: 'smooth' });
+            }
+            
+            // 4. 關閉搜尋下拉選單
+            searchResultsInline.style.display = 'none';
+            searchInput.value = '';
+        }
+
+        // Mermaid zoom functionality
+        const mermaidZoomState = {};
+
+        function initMermaidZoom() {
+            document.querySelectorAll('.mermaid-wrapper').forEach(wrapper => {
+                const id = wrapper.id;
+                mermaidZoomState[id] = { scale: 1, offsetX: 0, offsetY: 0 };
+                
+                const mermaidContainer = wrapper.querySelector('.mermaid-container');
+                const mermaid = mermaidContainer.querySelector('.mermaid');
+                if (!mermaidContainer || !mermaid) return;
+                
+                // Mouse wheel zoom
+                wrapper.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+                    zoomMermaid(id, delta);
+                });
+                
+                // Drag to pan
+                let isDragging = false;
+                let startX, startY, startLeft, startTop;
+                
+                mermaid.addEventListener('mousedown', (e) => {
+                    isDragging = true;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    const rect = mermaid.getBoundingClientRect();
+                    const containerRect = mermaidContainer.getBoundingClientRect();
+                    startLeft = (rect.left - containerRect.left) / mermaidZoomState[id].scale;
+                    startTop = (rect.top - containerRect.top) / mermaidZoomState[id].scale;
+                    mermaid.style.cursor = 'grabbing';
+                    e.preventDefault();
+                });
+                
+                document.addEventListener('mousemove', (e) => {
+                    if (!isDragging) return;
+                    const scale = mermaidZoomState[id].scale;
+                    const dx = (e.clientX - startX) / scale;
+                    const dy = (e.clientY - startY) / scale;
+                    mermaid.style.transform = `scale(${scale}) translate(${startLeft + dx}px, ${startTop + dy}px)`;
+                });
+                
+                document.addEventListener('mouseup', () => {
+                    if (isDragging) {
+                        isDragging = false;
+                        mermaid.style.cursor = 'grab';
+                    }
+                });
+            });
+        }
+
+        function zoomMermaid(id, delta) {
+            const wrapper = document.getElementById(id);
+            const mermaidContainer = wrapper.querySelector('.mermaid-container');
+            const mermaid = mermaidContainer.querySelector('.mermaid');
+            const scaleDisplay = wrapper.querySelector('.mermaid-scale-display');
+            
+            if (!mermaid || !scaleDisplay) return;
+            
+            const state = mermaidZoomState[id];
+            const newScale = Math.max(0.3, Math.min(3, state.scale + delta));
+            state.scale = newScale;
+            
+            const currentTransform = mermaid.style.transform;
+            const match = currentTransform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+            const offsetX = match ? match[1] : '0px';
+            const offsetY = match ? match[2] : '0px';
+            
+            mermaid.style.transform = `scale(${newScale}) translate(${offsetX}, ${offsetY})`;
+            scaleDisplay.textContent = Math.round(newScale * 100) + '%';
+        }
+
+        function resetMermaid(id) {
+            const wrapper = document.getElementById(id);
+            const mermaidContainer = wrapper.querySelector('.mermaid-container');
+            const mermaid = mermaidContainer.querySelector('.mermaid');
+            const scaleDisplay = wrapper.querySelector('.mermaid-scale-display');
+            
+            if (!mermaid || !scaleDisplay) return;
+            
+            mermaidZoomState[id].scale = 1;
+            mermaidZoomState[id].offsetX = 0;
+            mermaidZoomState[id].offsetY = 0;
+            mermaid.style.transform = 'scale(1) translate(0px, 0px)';
+            scaleDisplay.textContent = '100%';
+        }
+
+        // Initialize after page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                initMermaidZoom();
+                // Re-render mermaid diagrams
+                document.querySelectorAll('.mermaid').forEach(el => {
+                    mermaid.render('mermaid-' + Math.random(), el.textContent).then(({svg}) => {
+                        el.innerHTML = svg;
+                    }).catch(err => {
+                        console.error('Mermaid render error:', err);
+                    });
+                });
+            }, 100);
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                const searchContainer = document.querySelector('.search-container');
+                if (searchContainer AndAnd !searchContainer.contains(e.target)) {
+                    searchResultsInline.style.display = 'none';
+                }
+            });
+            
+            // Sidebar toggle functionality
+            const toggleBtn = document.getElementById('toggleBtn');
+            const sidebar = document.getElementById('sidebar');
+            
+            toggleBtn.addEventListener('click', () => {
+                sidebar.classList.toggle('collapsed');
+                toggleBtn.classList.toggle('collapsed');
+                
+                // Trigger Mermaid re-render after transition
+                if (!sidebar.classList.contains('collapsed')) {
+                    setTimeout(() => {
+                        window.dispatchEvent(new Event('resize'));
+                    }, 350);
+                }
+            });
+            
+            // Scroll Spy - 嚴謹版：手動指定每個 Section 的監聽範圍
+            const navItems = document.querySelectorAll('#sidebar .nav-item');
+            
+            // 定義每個 Section 的監聽配置
+            const scrollSpyConfig = [
+                {
+                    sectionId: 'modules',
+                    navSelector: '#sidebar .nav-item[href="#modules"]',
+                    // 監聽 #modules 內部的所有 .card (Module Grid 和 Table)
+                    targetSelector: '#modules .card'
+                },
+                {
+                    sectionId: 'code-deep-dive',
+                    navSelector: '#sidebar .nav-item[href="#code-deep-dive"]',
+                    // 監聽 #code-deep-dive 內部的所有 .card (Module 1-12)
+                    targetSelector: '#code-deep-dive .card'
+                },
+                {
+                    sectionId: 'data-flow',
+                    navSelector: '#sidebar .nav-item[href="#data-flow"]',
+                    // 監聽 #data-flow 內部的所有 .card 和 .mermaid-wrapper (圖表區域)
+                    targetSelector: '#data-flow .card, #data-flow .mermaid-wrapper'
+                }
+            ];
+
+            console.log('=== Scroll Spy Configuration ===');
+            const allTargets = [];
+
+            scrollSpyConfig.forEach(config => {
+                const targets = document.querySelectorAll(config.targetSelector);
+                console.log(`Section: ${config.sectionId}, Targets found: ${targets.length}`);
+                config.targets = Array.from(targets);
+                allTargets.push(...config.targets);
+                
+                // 驗證導航連結是否存在
+                const navLink = document.querySelector(config.navSelector);
+                if (!navLink) {
+                    console.error(`ERROR: Navigation link for ${config.sectionId} not found!`);
+                }
+            });
+            console.log(`Total elements to observe: ${allTargets.length}`);
+            console.log('==============================');
+
+            const observerOptions = {
+                root: null,
+                rootMargin: '0px 0px -40% 0px', // 當元素進入視口 60% 時觸發
+                threshold: [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1.0]
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                // 1. 過濾出所有可見度 > 0.01 的入口
+                const visibleEntries = entries
+                    .filter(entry => entry.isIntersecting AndAnd entry.intersectionRatio >= 0.01)
+                    .sort((a, b) => b.intersectionRatio - a.intersectionRatio); // 按可見度降序
+
+                if (visibleEntries.length === 0) return;
+
+                // 2. 取得可見度最高的元素，並透過 ID 反推它屬於哪個 Section
+                const topEntry = visibleEntries[0];
+                const targetElement = topEntry.target;
+                
+                // 嚴謹檢查：手動比對元素是否屬於我們定義的三個 Section
+                let activeSectionId = null;
+                
+                if (targetElement.closest('#modules')) {
+                    activeSectionId = 'modules';
+                } else if (targetElement.closest('#code-deep-dive')) {
+                    activeSectionId = 'code-deep-dive';
+                } else if (targetElement.closest('#data-flow')) {
+                    activeSectionId = 'data-flow';
+                }
+
+                if (!activeSectionId) {
+                    console.warn('Unknown section detected for element:', targetElement);
+                    return;
+                }
+
+                console.log(`[Scroll Spy] Active: ${activeSectionId} (Ratio: ${topEntry.intersectionRatio.toFixed(2)})`);
+
+                // 3. 更新導航欄狀態
+                navItems.forEach(item => item.classList.remove('active'));
+                
+                const activeNavLink = document.querySelector(`#sidebar .nav-item[href="#${activeSectionId}"]`);
+                if (activeNavLink) {
+                    activeNavLink.classList.add('active');
+                    
+                    // 自動滾動側邊欄以顯示當前激活項
+                    const sidebar = document.getElementById('sidebar');
+                    const itemTop = activeNavLink.offsetTop;
+                    const navHeight = sidebar.clientHeight;
+                    const navScrollTop = sidebar.scrollTop;
+
+                    if (itemTop < navScrollTop || itemTop > navScrollTop + navHeight - 60) {
+                        sidebar.scrollTo({
+                            top: itemTop - 30,
+                            behavior: 'smooth'
+                        });
+                    }
+                }
+            }, observerOptions);
+
+            // 4. 開始監聽所有定義好的目標元素
+            allTargets.forEach(el => observer.observe(el));
+        });
+    </script>
+</body>
+</html>
