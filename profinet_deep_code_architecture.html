@@ -681,8 +681,46 @@
                     </tr>
                 </tbody>
             </table>
+
+        <!-- Section 2: 程式深度剖析 -->
+        <section id="code-deep-dive">
+            <h2>程式深度剖析 - 核心模組實作細節</h2>
+            <p class="card">深入解析 PROFINET SDK 核心模組的實作細節，包含關鍵函式、狀態機、資料結構與協議流程。</p>
             
-            <h3>2. TSKMA: 任務管理</h3>
+            <!-- Module 1: PNDV -->
+            <div class="card" id="module-1">
+                <h3>1. PNDV: 設備視角與 AR 管理</h3>
+                <div class="file-path">src/ext/EK52/pn_ioddevkits/src/source/pndv/src/pndv_ar.c, src/ext/EK52/pn_ioddevkits/src/source/pndv/src/pndv_al.c</div>
+                <p><strong>核心邏輯：</strong>PNDV (Device View) 管理 PROFINET 設備視角、AR (Application Relation) 生命週期、警報處理與配置數據。核心結構體 <code>PNDV_DATA_T</code> 位於共享記憶體。</p>
+                
+                <h4>關鍵代碼片段：AR 狀態機初始化 (pndv_ar_init)</h4>
+                <div class="code-block">
+<span class="code-line"><span class="type">LSA_VOID</span> <span class="func">pndv_ar_init</span>(<span class="type">PNDV_AR_PTR</span> ar)</span>
+<span class="code-line">{</span>
+<span class="code-line">    ar->state = PNDV_AR_ST_IDLE;</span>
+<span class="code-line">    ar->ar_type = PNDV_AR_TYPE_CP;</span>
+<span class="code-line">    ar->connection_id = 0;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 初始化 AR 參數</span></span>
+<span class="code-line">    ar->param.block_length = PNDV_AR_PARAM_BLOCK_LEN;</span>
+<span class="code-line">    ar->param.block_type = PNDV_AR_PARAM_BLOCK;</span>
+<span class="code-line">    </span>
+<span class="code-line">    <span class="comment">// 初始化警報隊列</span></span>
+<span class="code-line">    AcpListInitialize(Andar->alarm_queue);</span>
+<span class="code-line">}</span>
+                </div>
+                
+                <h4>核心功能</h4>
+                <div class="code-block">
+<span class="code-line">1. AR 生命週期管理 (建立、連接、數據交換、拆除)</span>
+<span class="code-line">2. 設備視角數據維護 (PNDV_DATA_T)</span>
+<span class="code-line">3. 警報發送與確認機制</span>
+<span class="code-line">4. 配置數據讀寫 (GET/SET)</span>
+                </div>
+            </div>
+
+            <div class="card" id="module-2">
+                <h3>2. TSKMA: 任務管理</h3>
                 <div class="file-path">src/ext/EK52/pn_ioddevkits/src/source/tskma/src/tskma.c</div>
                 <p><strong>核心邏輯：</strong>TSKMA 管理 PROFINET 協議棧的 11 個核心任務。負責任務初始化、優先級設定、堆疊大小配置，以及冷啟動序列控制。</p>
                 
@@ -2144,8 +2182,8 @@
 <span class="code-line">iod_cfg.h                                       <span class="comment">- C程式碼定義 (必須與GSDML一致)</span></span>
                 </div>
             </div>
-
-</section>
+            
+        </section>
 
         <!-- 板塊三：資料流與流程圖 -->
         <section id="data-flow">
