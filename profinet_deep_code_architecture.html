@@ -16,102 +16,122 @@
             --code-text: #e2e8f0;
             --border: #e2e8f0;
             --sidebar-width: 280px;
-            --sidebar-collapsed-width: 40px;
+            /* 🌟 修改 1：將收合寬度從 40px 加寬到 72px，讓圖示有完美空間 */
+            --sidebar-collapsed-width: 72px; 
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
-            min-height: 100vh;
-            display: flex;
-        }
+
+        /* 🌟 修改 2：重新設計 Sidebar 排版與滑順動畫 */
         .sidebar {
             width: var(--sidebar-width);
             background: var(--card-bg);
             border-right: 1px solid var(--border);
-            padding: 1.5rem;
+            padding: 1.5rem 1rem; /* 左右內距微調 */
             position: fixed;
             top: 0;
             left: 0;
             height: 100vh;
             overflow-y: auto;
             z-index: 1000;
-            transition: width 0.3s ease;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             flex-direction: column;
-            box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
         }
         .sidebar.collapsed {
             width: var(--sidebar-collapsed-width);
-            padding: 1.5rem 0.5rem;
+            padding: 1.5rem 0.6rem;
         }
+        
         .sidebar-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1.5rem;
-            flex-shrink: 0;
+            margin-bottom: 2rem;
+            height: 36px; /* 鎖定高度，避免文字消失時畫面跳動 */
             overflow: hidden;
         }
+        .sidebar.collapsed .sidebar-header {
+            justify-content: center; /* 收合時讓按鈕完美置中 */
+        }
+        
         .sidebar-header h1 {
             font-size: 1.1rem;
             color: var(--primary);
             font-weight: 700;
             margin: 0;
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
             transition: opacity 0.2s;
         }
         .sidebar.collapsed .sidebar-header h1 {
             opacity: 0;
-            width: 0;
             display: none;
         }
+
+        /* 🌟 修改 3：完美置中並帶有箭頭動畫的漢堡按鈕 */
         .toggle-btn {
-            background: none;
+            background: transparent;
             border: none;
             cursor: pointer;
-            color: var(--primary);
-            padding: 0.6rem;
-            transform: translateY(-11px);
-            border-radius: 0.3rem;
-            transition: background 0.2s;
+            color: var(--secondary);
+            width: 36px;
+            height: 36px;
+            border-radius: 0.4rem;
             display: flex;
             flex-direction: column;
-            gap: 3px;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
             flex-shrink: 0;
+            transition: all 0.2s ease;
+            padding: 0;
         }
         .toggle-btn:hover {
             background: #f1f5f9;
+            color: var(--primary);
         }
         .toggle-btn span {
             display: block;
-            width: 22px;
+            width: 20px;
             height: 2px;
             background: currentColor;
-            border-radius: 1px;
-            transition: all 0.2s;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+            transform-origin: right center;
         }
-        .sidebar h1 {
-            font-size: 1.1rem;
-            color: var(--primary);
-            font-weight: 700;
-            margin-bottom: 1.5rem;
+        
+        /* 漢堡變成「展開箭頭」的動畫 */
+        .sidebar.collapsed .toggle-btn span:nth-child(1) {
+            width: 12px; /* 箭頭上半部的線條變短 */
+            transform: translateY(7px) rotate(-45deg); /* 往下移動並逆時針旋轉 */
         }
+        .sidebar.collapsed .toggle-btn span:nth-child(2) {
+            width: 20px; /* 中間線保持原長度，作為箭頭的身體 */
+            opacity: 1;  /* 確保中間線不消失 */
+        }
+        .sidebar.collapsed .toggle-btn span:nth-child(3) {
+            width: 12px; /* 箭頭下半部的線條變短 */
+            transform: translateY(-7px) rotate(45deg); /* 往上移動並順時針旋轉 */
+        }
+
+        /* 🌟 修改 4：選單項目的圖示排版 */
         .nav-item {
-            display: block;
-            padding: 0.6rem 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0.8rem 1rem;
             color: var(--secondary);
             text-decoration: none;
-            border-radius: 0.4rem;
-            margin-bottom: 0.3rem;
-            transition: all 0.2s;
+            border-radius: 0.5rem;
+            margin-bottom: 0.4rem;
+            transition: all 0.2s ease;
             white-space: nowrap;
             overflow: hidden;
-            text-overflow: ellipsis;
+        }
+        .nav-item svg {
+            flex-shrink: 0;
+            width: 22px;
+            height: 22px;
+            transition: color 0.2s;
         }
         .nav-item:hover {
             background: #f1f5f9;
@@ -121,6 +141,12 @@
             background: #dbeafe;
             color: var(--primary);
             font-weight: 600;
+        }
+        
+        /* 收合後只顯示圖示，隱藏文字 */
+        .sidebar.collapsed .nav-item {
+            padding: 0.8rem; 
+            justify-content: center;
         }
         .sidebar.collapsed .nav-item span {
             display: none;
@@ -133,11 +159,9 @@
             transition: margin-left 0.3s ease;
             position: relative;
             z-index: 1;
-            width: calc(100vw - var(--sidebar-width));
         }
         .sidebar.collapsed ~ .main-content {
             margin-left: var(--sidebar-collapsed-width);
-            width: calc(100vw - var(--sidebar-collapsed-width));
         }
         .search-container {
             margin-bottom: 1.5rem;
@@ -268,68 +292,7 @@
         .tag-core { background: #dbeafe; color: #1e40af; }
         .tag-critical { background: #fee2e2; color: #991b1b; }
         .tag-optimization { background: #d1fae5; color: #065f46; }
-        .mermaid-wrapper {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 0.6rem;
-            margin: 1.2rem 0;
-            position: relative;
-            min-height: 300px;
-            overflow: auto;
-            padding: 1rem;
-        }
-        .mermaid-controls {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 0.4rem;
-            padding: 0.3rem;
-            display: flex;
-            gap: 0.2rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            z-index: 10;
-        }
-        .mermaid-controls button {
-            background: #f1f5f9;
-            border: none;
-            width: 28px;
-            height: 28px;
-            border-radius: 0.3rem;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: bold;
-            color: #475569;
-            transition: background 0.2s;
-        }
-        .mermaid-controls button:hover {
-            background: #e2e8f0;
-        }
-        .mermaid-scale-display {
-            position: absolute;
-            bottom: 8px;
-            right: 8px;
-            background: rgba(255,255,255,0.9);
-            padding: 0.2rem 0.5rem;
-            border-radius: 0.3rem;
-            font-size: 0.75rem;
-            color: #64748b;
-            pointer-events: none;
-            z-index: 10;
-        }
-        .mermaid-container {
-            width: 100%;
-            height: auto;
-            overflow: visible;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-        }
-        .mermaid-container 
-        .mermaid-container .mermaid:active {
-            cursor: grabbing;
-        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -382,90 +345,92 @@
             font-size: 0.95rem;
         }
         .hidden { display: none; }
-    
-    
-    
-
-    
-    
-
-
-    
-
-
-    
-
-
-    
-
-
-    
-    /* 圖表 3-7 保持預設大小（無需額外 CSS） */
-    #mermaid-3 .mermaid-container,
-    #mermaid-4 .mermaid-container,
-    #mermaid-5 .mermaid-container,
-    #mermaid-6 .mermaid-container,
-    
-
-
-    
-    .mermaid svg {
-        min-width: 600px !important;
-        min-height: 300px !important;
-        width: auto !important;
-        height: auto !important;
-    }
-    
-    #mermaid-3 .mermaid svg,
-    #mermaid-4 .mermaid svg,
-    #mermaid-5 .mermaid svg,
-    #mermaid-6 .mermaid svg,
-    
-    
-    #mermaid-1 .mermaid svg,
-    
-
-
     /* 基本容器樣式（不干涉 Mermaid 渲染） */
-    .mermaid-container {
-        overflow: auto !important;
+/* =========================================
+           Mermaid 圖表專屬樣式 (已修復語法錯誤與排版)
+           ========================================= */
+    .mermaid-wrapper {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.6rem;
+        margin: 1.2rem 0;
         position: relative;
+        height: 550px; /* mermaid 高度 */
+        overflow: hidden; /* 隱藏超出邊界的圖表，配合拖曳功能 */
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .mermaid-container {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
     .mermaid {
-        text-align: center;
+        cursor: grab;
+        display: flex;
+        justify-content: center;
+        height: 100%;
+        transition: transform 0.1s ease-out; /* 讓縮放更平滑 */
+        transform-origin: center center;
+    }
+    .mermaid:active {
+        cursor: grabbing;
     }
     .mermaid svg {
-        max-width: 100%;
-        height: auto;
-    }
-
-
-    /* 確保容器可以滾動和拖動 */
-    .mermaid-wrapper {
-        overflow: auto !important;
-        position: relative;
-        width: 100%;
-    }
-    .mermaid-container {
-        overflow: auto !important;
-        position: relative;
-        min-width: 100%;
-        min-height: 300px;
-    }
-    .mermaid svg {
-        max-width: none !important;
-        width: auto !important;
+        max-width: 100% !important; /* 取消強制 600px，改為自適應 */
         height: auto !important;
-        display: block;
     }
-    /* 圖表 1-2：縮小間距 */
-    #mermaid-1 .mermaid,
-    #mermaid-2 .mermaid {
-        font-size: 12px !important;
+    
+    /* 動態加入的控制按鈕樣式 */
+    .mermaid-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid #e2e8f0;
+        border-radius: 0.4rem;
+        padding: 4px;
+        display: flex;
+        gap: 4px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        z-index: 10;
     }
-    /* 圖表 7：放大間距 */
-    #mermaid-7 .mermaid {
-        font-size: 16px !important;
+    .mermaid-controls button {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        width: 28px;
+        height: 28px;
+        border-radius: 0.2rem;
+        cursor: pointer;
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #475569;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+    .mermaid-controls button:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+    }
+    .mermaid-scale-display {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        background: rgba(255,255,255,0.9);
+        padding: 0.2rem 0.5rem;
+        border-radius: 0.3rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #64748b;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        pointer-events: none;
+        z-index: 10;
     }
 
 </style>
@@ -2473,7 +2438,7 @@ sequenceDiagram
     <script>
         // Mermaid initialization
         mermaid.initialize({ 
-    startOnLoad: true, 
+    startOnLoad: false, 
     theme: 'default', 
     themeVariables: {
         fontSize: '14px',
@@ -2516,275 +2481,160 @@ sequenceDiagram
         const resultsContainer = document.getElementById('search-results-container');
 
         const knowledgeBase = [
-            // === 核心模組：PNDV (設備視角管理) ===
+            // === 1. PNDV ===
             { 
-                keywords: ['PNDV', 'pndv_ar', '設備視角', 'device view', 'ar', 'application relation', '生命週期', 'alarms', '警報', '配置', 'pndv_dat.h', 'pndv_ar.c'], 
+                keywords: ['PNDV', 'pndv_ar', '設備視角', 'device view', 'ar', 'application relation', '生命週期', 'alarms', '警報', '配置', 'pndv_dat.h', 'pndv_ar.c', 'pndv_ar_init', 'PNDV_AR_ST_IDLE', 'PNDV_AR_TYPE_CP', 'connection_id', 'block_length', 'alarm_queue', 'PNDV_DATA_T', 'GET/SET'], 
                 title: 'PNDV: 設備視角與 AR 管理', 
-                content: '管理 PROFINET 設備視角、AR (Application Relation) 生命週期、警報處理與配置數據。核心結構體 PNDV_DATA_T 位於共享記憶體。', 
-                file: 'pndv_ar.c', 
-                line: 100 
+                content: '管理 PROFINET 設備視角、AR 生命週期、警報處理與配置數據。', 
+                file: 'pndv_ar.c', line: 100, targetId: 'module-1' 
             },
-            // === 核心模組：TSKMA (任務管理) ===
+            // === 2. TSKMA ===
             { 
-                keywords: ['TSKMA', 'tskma', '任務管理', 'task management', 'boot', '啟動', '雙核', 'multi-core', 'core', 'tskma.c', 'os_cfg.h'], 
+                keywords: ['TSKMA', 'tskma', '任務管理', 'task management', 'boot', '啟動', '雙核', 'multi-core', 'core', 'tskma.c', 'tskma_init', 'tskma_open', 'TSKMA_TASK_NUM_APP', 'TSKMA_OS_TASK_CREATE', 'tskma_parity_error_count', 'APP', 'RBT', 'PSI', 'LD', 'HD', 'ORG', 'POF', 'EDDP', 'PNO', 'STP', 'IDL'], 
                 title: 'TSKMA: 任務管理與啟動序列', 
-                content: '管理 11 個核心任務 (APP, RBT, PSI, EDDP 等)，控制雙核啟動序列，確保模組依賴關係正確。', 
-                file: 'tskma.c', 
-                line: 53 
+                content: '管理 11 個核心任務，控制雙核啟動序列，確保模組依賴關係正確。', 
+                file: 'tskma.c', line: 53, targetId: 'module-2' 
             },
-            // === 核心模組：GDMA (DMA 控制) ===
+            // === 3. GDMA ===
             { 
-                keywords: ['GDMA', 'gdma', 'DMA', 'direct memory access', '中斷', 'interrupt', 'ISR', 'gdma.c', 'dma_transfer'], 
+                keywords: ['GDMA', 'gdma', 'DMA', 'direct memory access', '中斷', 'interrupt', 'ISR', 'gdma.c', 'dma_transfer', 'gdma_isr', 'GDMA_IRQ_STATUS', 'gdma_job_done_callbacks', 'gdma_is_job_allocated', 'GDMA_MAX_JOBS', '任務池', 'job pools'], 
                 title: 'GDMA: 硬體 DMA 管理', 
-                content: '管理硬體 DMA 轉移，支援多種觸發源，處理中斷服務常式 (ISR) 並調用回調函數。', 
-                file: 'gdma.c', 
-                line: 94 
+                content: '管理硬體 DMA 轉移，支援多種觸發源，處理中斷服務常式 (ISR)。', 
+                file: 'gdma.c', line: 94, targetId: 'module-3' 
             },
-            // === 核心模組：EVMA (事件管理) ===
+            // === 4. EVMA ===
             { 
-                keywords: ['EVMA', 'evma', '事件管理', 'event management', 'alarm', '警報', 'pnpll', '計時器', 'evma.c'], 
+                keywords: ['EVMA', 'evma', '事件管理', 'event management', 'alarm', '警報', 'pnpll', '計時器', 'evma.c', 'EVMA_EXECUTE_ALL_CALLBACKS', 'evma_callback_descriptor_t', 'EVMA_NUM_COMPARATORS', 'EVMA_NUM_ISR_VECTORS', 'ITCM', 'DTCM', '比較器'], 
                 title: 'EVMA: 事件與計時器管理', 
-                content: '管理系統事件、警報通知，並與 PNPLL 計時器整合，處理定時任務與超時機制。', 
-                file: 'evma.c', 
-                line: 78 
+                content: '管理系統事件、警報通知，並與 PNPLL 計時器整合。', 
+                file: 'evma.c', line: 78, targetId: 'module-4' 
             },
-            // === 核心模組：ACP_RTA (RTA 協議層) ===
+            // === 5. ACP_RTA ===
             { 
-                keywords: ['ACP_RTA', 'acp_rta', 'RTA', 'real-time', '實時通訊', 'rqb', 'queue', '警報確認', 'ack', 'acp_rta.c', 'acp_low.h'], 
+                keywords: ['ACP_RTA', 'acp_rta', 'RTA', 'real-time', '實時通訊', 'rqb', 'queue', '警報確認', 'ack', 'acp_rta.c', 'acp_rta_sm_init', 'acp_rta_sm_stop', 'tx_seq_num', 'rx_seq_num', 'ACP_RTA_ST_OPEN', 'wf_ack', 'wf_timeout', 'AlarmNotification-PDU', 'AlarmAck-PDU', 'IEC 61156', 'Part 6'], 
                 title: 'ACP_RTA: 實時通訊協議', 
-                content: '實現 PROFINET RTA 實時通訊協議，管理 RQB 隊列、序列號、警報確認與狀態機。', 
-                file: 'acp_rta.c', 
-                line: 111 
+                content: '實現 PROFINET RTA 實時通訊協議，管理序列號與警報確認。', 
+                file: 'acp_rta.c', line: 111, targetId: 'module-5' 
             },
-            // === 核心模組：CM_DCP (發現協議) ===
+            // === 6. CM_DCP ===
             { 
-                keywords: ['CM_DCP', 'cm_dcp', 'DCP', 'discovery', '發現協議', '配置', 'identify', 'get', 'set', 'cm_dcp.c'], 
+                keywords: ['CM_DCP', 'cm_dcp', 'DCP', 'discovery', '發現協議', '配置', 'identify', 'get', 'set', 'cm_dcp.c', 'cm_dcp_HDB_DCP_init', 'cm_dcp_server_identify', 'cm_dcp_server_getset_lock', 'ResponseDelayFactor', 'NameOfStationFilter', 'AliasNameFilter'], 
                 title: 'CM_DCP: 發現與配置協議', 
-                content: '實現 DCP (Discovery and Configuration Protocol)，支援 Identify、GET、SET 服務，用於設備發現與參數配置。', 
-                file: 'cm_dcp.c', 
-                line: 79 
+                content: '實現 DCP 協議，支援 Identify、GET、SET 服務。', 
+                file: 'cm_dcp.c', line: 79, targetId: 'module-6' 
             },
-            // === 核心模組：EDDP (數據路徑) ===
+            // === 7. EDDP ===
             { 
-                keywords: ['EDDP', 'eddp', '數據路徑', 'data path', 'IRT', 'real-time', '週期數據', 'state machine', 'eddp_core_sm.c', 'hal'], 
+                keywords: ['EDDP', 'eddp', '數據路徑', 'data path', 'IRT', 'real-time', '週期數據', 'state machine', 'eddp_core_sm.c', 'hal', 'EDDP_CoreDeviceSetupFctTable', 'EDDP_CoreDevSetupStateMachine', 'EDDP_HALDeviceSetup', 'DO_SETUP', 'DO_SHUTDOWN', 'EDDP_DDB_STATE_SETUP_IDLE'], 
                 title: 'EDDP: 數據路徑與 IRT 控制', 
-                content: '管理 IRT 實時數據路徑，控制週期數據發送/接收，整合 HAL 層與狀態機。', 
-                file: 'eddp_core_sm.c', 
-                line: 196 
+                content: '管理 IRT 實時數據路徑，負責啟動與關閉的狀態機 (Setup/Shutdown)。', 
+                file: 'eddp_core_sm.c', line: 196, targetId: 'module-7' 
             },
-            // === 核心模組：ACP_LL (低層協議) ===
+            // === 8. ACP_LL ===
             { 
-                keywords: ['ACP_LL', 'acp_ll', 'low layer', '低層', 'ethernet', 'eth', 'mac', 'acp_low.h', 'acp_nrt.c'], 
+                keywords: ['ACP_LL', 'acp_ll', 'low layer', '低層', 'ethernet', 'eth', 'mac', 'acp_low.h', 'acp_ll_alloc_rqb', 'acp_ll_open_channel', 'acp_ll_get_params_done', 'EDD_OPC_OPEN_CHANNEL', 'IsInTSNMode', 'EDD_MODE_TSN', 'acp_ll_request'], 
                 title: 'ACP_LL: 低層協議與網路存取', 
-                content: '提供低層網路存取介面，處理 Ethernet 幀、MAC 地址過濾，整合非實時 (NRT) 通訊。', 
-                file: 'acp_low.h', 
-                line: 45 
+                content: '提供低層網路存取介面，處理 Ethernet 幀、通道打開/關閉。', 
+                file: 'acp_low.h', line: 45, targetId: 'module-8' 
             },
-            // === 應用模組：PROFIdrive ===
+            // === 9. CM_AR ===
             { 
-                keywords: ['PROFIdrive', 'profidrive', '應用層', 'application', 'profile', '驅動', 'motion', 'sync', 'profidrive.c'], 
-                title: 'PROFIdrive: 驅動應用層', 
-                content: '實現 PROFIdrive 應用層規範，支援驅動控制、運動控制、同步操作等專業功能。', 
-                file: 'profidrive.c', 
-                line: 120 
+                keywords: ['CM_AR', 'cm_arsm', 'AR 管理', '狀態機', 'cr_state', 'cm_ar_com_prov_activate_next', 'CM_AR_CR_UP', 'CM_AR_CR_ERROR', 'CM_AR_STATE_AR_REQ', 'CM_AR_CR_PASSIVE', 'Provider', 'Consumer', 'IOC'], 
+                title: 'CM_AR: AR 管理', 
+                content: '管理 PROFINET AR 狀態機，處理建立、數據交換與關閉流程。', 
+                file: 'cm_arsm.c', line: 150, targetId: 'module-9' 
             },
-            // === 應用模組：App Common ===
+            // === 10. CM_AL ===
             { 
-                keywords: ['App Common', 'app common', '應用通用', 'utility', '工具函式', 'log', 'debug', 'app_common.c'], 
-                title: 'App Common: 應用通用工具', 
-                content: '提供應用層通用工具函式，包括日誌記錄、除錯資訊、數據轉換等公共功能。', 
-                file: 'app_common.c', 
-                line: 55 
+                keywords: ['CM_AL', 'acp_al', '警報管理', '優先級', '資源', 'acp_alarm_find', 'acp_alarm_is_free', 'acp_alarm_check_provided_and_close', 'ACP_ALARM_ST_FREE', 'ACP_ALARM_PRIORITY_HIGH', 'ACP_ALARM_PRIORITY_LOW'], 
+                title: 'CM_AL: 警報管理', 
+                content: '警報分配、狀態轉換、優先級管理、資源提供與關閉。', 
+                file: 'acp_al.c', line: 80, targetId: 'module-10' 
             },
-            // === 應用模組：PN-PB (協議核心) ===
+            // === 11. PN-PB Core ===
             { 
-                keywords: ['PN-PB', 'pn-pb', 'protocol base', '協議核心', 'state machine', '狀態機', 'io', 'pn_pb.c'], 
-                title: 'PN-PB: 協議核心狀態機', 
-                content: '實現 PROFINET 協議核心狀態機，管理 IO 數據交換、通訊週期與協議狀態轉換。', 
-                file: 'pn_pb.c', 
-                line: 210 
+                keywords: ['PN-PB', 'pn-pb', 'protocol base', '協議核心', 'state machine', '狀態機', 'io', 'usriod_main.c', 'MainAppl', 'PnUsr_DeviceSetup', 'PnUsr_cbf_IoDatXch', 'PNIO_initiate_data_read', 'PNIO_initiate_data_write', 'IOD_CFG_VENDOR_ID', 'EK52'], 
+                title: 'PN-PB: 協議核心', 
+                content: '實現 PROFINET 設備主程式邏輯，包含設備啟動、模組配置與數據交換。', 
+                file: 'usriod_main.c', line: 210, targetId: 'module-11' 
             },
-            // === 應用模組：IOM (IO Manager) ===
+            // === 12. IOM ===
             { 
-                keywords: ['IOM', 'iom', 'IO Manager', 'io manager', '模組管理', 'submodule', 'data exchange', 'iom.c', 'iom_cfg.h'], 
+                keywords: ['IOM', 'iom', 'IO Manager', 'io manager', '模組管理', 'submodule', 'data exchange', 'iom.c', 'iom_cfg.h', 'iom_allocate_iocr_memory', 'iom_free_iocr_memory', 'IOM_CFG_PNIP', 'iom_get_consumer_buffer', 'iom_get_producer_buffer'], 
                 title: 'IOM: IO 模組管理', 
-                content: '管理 IO 模組與子模組，處理數據交換、模組配置與狀態監控。', 
-                file: 'iom_interface.c', 
-                line: 88 
+                content: '管理 IO 數據緩衝區分配、數據一致性保證。', 
+                file: 'iom_interface.c', line: 88, targetId: 'module-12' 
             },
-            // === 關鍵模組：封包解析與非實時通訊 (ACP_NRT) ===
+            // === 13. PnUsr ===
             { 
-                keywords: ['ACP_NRT', 'acp_nrt', '封包解析', 'packet parsing', 'NRT', 'non-real-time', 'ethernet frame', 'MAC', 'acp_nrt.c', 'recv_indication'], 
-                title: 'ACP_NRT: 封包解析與非實時通訊', 
-                content: '處理非實時 (NRT) 封包解析。關鍵函式 acp_nrt_recv_indication() 負責接收 Eth 幀，進行 MAC 檢查並分發至 RTA 或 NRT 處理流程。', 
-                file: 'acp_nrt.c', 
-                line: 519 
-            },
-            // === 關鍵模組：應用層共享記憶體 (PnUsr) ===
-            { 
-                keywords: ['PnUsr', '共享記憶體', 'shared memory', '應用層 API', 'PnUsr_SharedMemory', 'app', 'pns'], 
+                keywords: ['PnUsr', '共享記憶體', 'shared memory', '應用層 API', 'app', 'pns', 'PNIO_SHM_Read', 'PNIO_SHM_Write', 'R_SHARED_MEMORY_Read', 'OsMemCpy', 'shost_host_read', 'fsp_err_t'], 
                 title: 'PnUsr: 應用層共享記憶體介面', 
-                content: '應用層與協議棧的數據交換介面。PNDV_DATA_T 結構體位於此，供應用程式存取設備視角數據。', 
-                file: 'PnUsr_SharedMemory.c', 
-                line: 70 
+                content: '應用層與協議棧的數據交換介面。', 
+                file: 'PnUsr_SharedMemory.c', line: 70, targetId: 'module-13' 
             },
-            // === 關鍵模組：EDDP 核心實作 (pns) ===
+            // === 14. EDDP-PNS ===
             { 
-                keywords: ['EDDP', 'eddp', '數據路徑', 'data path', 'IRT', 'k32', '副核', 'eddp_k32.c', 'eddp_llif.c', 'pns'], 
+                keywords: ['EDDP-PNS', 'eddp', '數據路徑', 'data path', 'IRT', 'k32', '副核', 'eddp_k32.c', 'eddp_llif.c', 'pns', 'EDDP_CopyTimeStamp', 'TimesStamp.SecondsHigh', 'TimesStamp.Nanoseconds', 'SequenceID', 'MasterIdent'], 
                 title: 'EDDP (pns): 數據路徑與硬體加速', 
-                content: 'EDDP 在 pns 目錄的實作。eddp_k32.c 處理副核 (K32) 的硬體加速，eddp_llif.c 負責低層介面。', 
-                file: 'eddp_k32.c', 
-                line: 120 
+                content: '處理副核 (K32) 的硬體加速與時間戳處理。', 
+                file: 'eddp_k32.c', line: 120, targetId: 'module-14' 
             },
-            // === 關鍵模組：時間同步 (gPTP/RSync) ===
+            // === 15. gPTP / RSync ===
             { 
-                keywords: ['gPTP', 'PTP', 'RSync', '時間同步', 'IEEE 1588', 'bmc', 'gptp.c', 'RSync', 'pns'], 
+                keywords: ['gPTP', 'PTP', 'RSync', '時間同步', 'IEEE 1588', 'bmc', 'gptp.c', 'pns', 'gptp_clearMasterMAC', 'setLLDPMasterMAC', 'initBMC', 'bmcHandleEvent', 'clock_settime', 'clock_gettime', 'sendto', 'ATIME_SEC0', 'ETHSW_TIMER1'], 
                 title: 'gPTP/RSync: 精確時間同步', 
-                content: '實現 IEEE 1588 PTP 協議。gptp.c 處理時間同步，bmc.c 實現最佳主時鐘 (BMC) 演算法。', 
-                file: 'gptp.c', 
-                line: 85 
+                content: '實現 IEEE 1588 PTP 協議與最佳主時鐘 (BMC) 演算法，並操作硬體時間戳。', 
+                file: 'gptp.c', line: 85, targetId: 'module-15' 
             },
-            // === 關鍵模組：GSDML 設備描述 ===
+            // === 16. Storm Protection ===
             { 
-                keywords: ['GSDML', 'GSD', '設備描述', 'device description', 'XML', 'gsdml', 'PROFINET'], 
-                title: 'GSDML: 設備描述檔', 
-                content: 'PROFINET 設備描述檔 (XML)，定義設備模組、數據點、參數。主站 (如 TIA Portal) 依此識別設備。', 
-                file: 'GSDML-V2.44-RENESAS-RZT2-VSC8541-20260116.xml', 
-                line: 1 
-            },
-            // === 關鍵模組：網路風暴防護 ===
-            { 
-                keywords: ['storm', '風暴防護', 'storm protection', 'network', 'pns'], 
+                keywords: ['storm', '風暴防護', 'storm protection', 'network', 'pns', 'EDDP_LL_EhterTypeFilterInit', 'EDDP_LL_AddEtherTypeFilter', 'OsAllocTimer', 'ETH_TYPE_IPV4', 'STORM_FILTER_DCP_SW', 'STORM_FILTER_ARP_HW'], 
                 title: 'Storm Protection: 網路風暴防護', 
-                content: '防止網路風暴導致系統崩潰。監控流量異常並自動過濾異常封包。', 
-                file: 'storm_protection.c', 
-                line: 50 
+                content: '透過軟體過濾機制監控 EtherType 封包頻率，防止廣播風暴。', 
+                file: 'storm_protection.c', line: 50, targetId: 'module-16' 
             },
-            // === 關鍵模組：協議核心 (PN-PB) ===
+            // === 17. GSDML ===
             { 
-                keywords: ['PN-PB', 'pnpb', 'protocol base', '協議核心', 'state machine', '狀態機', 'io', 'pnpb.c', 'pnpb.h', 'pnpb_api.c'], 
-                title: 'PN-PB: 協議核心狀態機', 
-                content: '實現 PROFINET 協議核心狀態機，管理 IO 數據交換、通訊週期與協議狀態轉換。', 
-                file: 'pnpb_lib_main.c', 
-                line: 210 
-            },
-            // === 關鍵模組：EDDP 非實時處理 ===
-            { 
-                keywords: ['EDDP_NRT', 'eddp_nrt', '非實時', 'nrt', 'data path', 'IRT', '週期數據', 'eddp_nrt.c', 'eddp_nrt_rcv.c', 'eddp_nrt_snd.c'], 
-                title: 'EDDP_NRT: 非實時數據路徑', 
-                content: '處理 EDDP 模組的非實時數據接收與發送，整合 IRT 週期數據與非實時通訊。', 
-                file: 'eddp_nrt.c', 
-                line: 150 
-            },
-            // === 關鍵模組：RQB/RDB 封包結構 ===
-            { 
-                keywords: ['RQB', 'RDB', 'request block', 'response block', '封包結構', 'buffer', 'acp_low.h', 'acp.h', 'acp_low.c'], 
-                title: 'RQB/RDB: 請求與回應封包結構', 
-                content: 'RQB (Request Block) 與 RDB (Response Block) 是 SDK 內部模組間通訊的核心結構，包含封包頭、長度、序列號與數據區。', 
-                file: 'acp_low.h', 
-                line: 45 
-            },
-            // === 通用概念 ===
-            { 
-                keywords: ['初始化', 'init', 'setup', 'boot', '啟動', 'eddp_core_sm.c'], 
-                title: '系統初始化', 
-                content: '通過 EDDP_CoreDevSetupStateMachine 控制，依序啟動 HAL、定時器、中斷等模組。', 
-                file: 'eddp_core_sm.c', 
-                line: 196 
-            },
-            { 
-                keywords: ['雙核', 'dual-core', 'multi-core', 'core', 'tskma.c'], 
-                title: '雙核架構', 
-                content: 'RZ/T2 採用雙核架構，主核運行 PROFINET 協議棧，副核處理硬體加速。', 
-                file: 'tskma.c', 
-                line: 53 
-            },
-            { 
-                keywords: ['shared memory', '共享記憶體', 'pndv_dat.h'], 
-                title: '共享記憶體', 
-                content: 'PNDV_DATA_T 結構體位於共享記憶體，供多個核心存取。', 
-                file: 'pndv_dat.h', 
-                line: 70 
-            },
-            { 
-                keywords: ['警報', 'alarm', 'ack', 'acp_rta.c'], 
-                title: '警報處理', 
-                content: 'ACP_RTA 狀態機管理警報的發送、接收與確認流程。', 
-                file: 'acp_rta.c', 
-                line: 111 
-            },
-            { 
-                keywords: ['boot sequence', '啟動序列', 'tskma.c'], 
-                title: '啟動序列', 
-                content: '冷啟動時，TSKMA 依序啟動 11 個核心任務，確保依賴關係正確。', 
-                file: 'tskma.c', 
-                line: 53 
-            },
-            { 
-                keywords: ['DMA', 'gdma', 'gdma.c'], 
-                title: 'DMA 轉移', 
-                content: 'GDMA 模組管理硬體 DMA 轉移，支援多種觸發源。', 
-                file: 'gdma.c', 
-                line: 94 
-            },
-            { 
-                keywords: ['中斷', 'interrupt', 'ISR', 'gdma.c'], 
-                title: '中斷處理', 
-                content: 'GDMA 中斷服務常式處理轉移完成事件並調用回調函數。', 
-                file: 'gdma.c', 
-                line: 94 
-            },
-            { 
-                keywords: ['任務', 'task', 'thread', 'tskma.c'], 
-                title: '任務管理', 
-                content: 'TSKMA 管理 11 個核心任務，包括 APP、RBT、PSI、EDDP 等。', 
-                file: 'tskma.c', 
-                line: 74 
-            },
-            { 
-                keywords: ['RQB', 'queue', 'acp_low.h'], 
-                title: 'RQB 隊列', 
-                content: 'RQB (Request Block) 用於模組間通訊和緩衝區管理。', 
-                file: 'acp_low.h', 
-                line: 45 
-            },
-            { 
-                keywords: ['DCP', 'discovery', 'cm_dcp.c'], 
-                title: 'DCP 協議', 
-                content: 'CM_DCP 實現發現與配置協議，支援 Identify、GET、SET 服務。', 
-                file: 'cm_dcp.c', 
-                line: 79 
-            },
-            { 
-                keywords: ['AR', 'application relation', 'pndv_ar.c'], 
-                title: 'AR 生命週期', 
-                content: 'PNDV_AR 管理 AR 的建立、數據交換與拆除流程。', 
-                file: 'pndv_ar.c', 
-                line: 100 
-            },
-            { 
-                keywords: ['RTA', 'real-time', 'acp_rta.c'], 
-                title: 'RTA 通訊', 
-                content: 'ACP_RTA 實現實時通訊協議，管理序列號與確認機制。', 
-                file: 'acp_rta.c', 
-                line: 111 
+                keywords: ['GSDML', 'GSD', '設備描述', 'device description', 'XML', 'gsdml', 'PROFINET', 'IOD_CFG_VENDOR_ID', 'IOD_CFG_DEVICE_ID', 'DeviceIdentity', '0x02C7', '0x0003', 'UPD60620_PHY', 'DEVKIT_PRODUCTSERIALNUMBER'], 
+                title: 'GSDML: 設備描述檔', 
+                content: 'PROFINET 設備描述檔 (XML)，定義設備模組、數據點、參數。', 
+                file: 'GSDML-V2.44.xml', line: 1, targetId: 'module-17' 
             }
         ];
 
         searchInput.addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase().trim();
+            const rawQuery = e.target.value.trim();
+            const query = rawQuery.toLowerCase();
             
             if (query.length < 2) {
                 searchResultsInline.innerHTML = '';
                 searchResultsInline.style.display = 'none';
-                resultsContainer.innerHTML = '';
-                searchMessage.classList.add('hidden');
+                // 安全性檢查：如果有底部的搜尋結果區塊才清空
+                if (typeof resultsContainer !== 'undefined' && resultsContainer) {
+                    resultsContainer.innerHTML = '';
+                }
+                if (typeof searchMessage !== 'undefined' && searchMessage) {
+                    searchMessage.classList.add('hidden');
+                }
                 return;
             }
 
-            const results = knowledgeBase.filter(item => 
-                item.keywords.some(keyword => keyword.includes(query) || query.includes(keyword))
-            );
+            // 🌟 升級 1：將使用者輸入的字串用空白切開，支援「多關鍵字搜尋」
+            // 例如輸入 "task app" 會變成 ['task', 'app']
+            const searchTerms = query.split(/\s+/);
+
+            const results = knowledgeBase.filter(item => {
+                // 🌟 升級 2：將該模組的所有資訊（標題、內容、檔名、關鍵字）串成一大包文字
+                const searchableText = `
+                    ${item.title} 
+                    ${item.content} 
+                    ${item.file} 
+                    ${item.keywords.join(' ')}
+                `.toLowerCase();
+
+                // 🌟 升級 3：確保「所有的」搜尋關鍵字，都存在於這包文字中 (AND 邏輯)
+                return searchTerms.every(term => searchableText.includes(term));
+            });
 
             // Update inline dropdown
             if (results.length === 0) {
@@ -2793,7 +2643,7 @@ sequenceDiagram
             } else {
                 searchResultsInline.style.display = 'block';
                 searchResultsInline.innerHTML = results.map(result => `
-                    <div class="result-item" onclick="scrollToSection('${result.file}', '${result.title}')">
+                    <div class="result-item" onclick="scrollToSection('${result.targetId}')">
                         <div class="result-title">${result.title}</div>
                         <div class="result-file">${result.file}:${result.line}</div>
                         <div class="result-content">${result.content}</div>
@@ -2801,131 +2651,109 @@ sequenceDiagram
                 `).join('');
             }
 
-            // Also update bottom section (for completeness)
-            if (results.length === 0) {
-                resultsContainer.innerHTML = '';
-                searchMessage.classList.remove('hidden');
-            } else {
-                searchMessage.classList.add('hidden');
-                resultsContainer.innerHTML = results.map(result => `
-                    <div class="result-item">
-                        <div class="result-title">${result.title}</div>
-                        <div class="result-file">${result.file}:${result.line}</div>
-                        <div class="result-content">${result.content}</div>
-                    </div>
-                `).join('');
+            // Also update bottom section (安全性檢查，避免 HTML 中沒有這些元素時報錯)
+            if (typeof resultsContainer !== 'undefined' && resultsContainer) {
+                if (results.length === 0) {
+                    resultsContainer.innerHTML = '';
+                    if (searchMessage) searchMessage.classList.remove('hidden');
+                } else {
+                    if (searchMessage) searchMessage.classList.add('hidden');
+                    resultsContainer.innerHTML = results.map(result => `
+                        <div class="result-item">
+                            <div class="result-title">${result.title}</div>
+                            <div class="result-file">${result.file}:${result.line}</div>
+                            <div class="result-content">${result.content}</div>
+                        </div>
+                    `).join('');
+                }
             }
         });
 
-        // 模組名稱到 ID 的映射表 (用於搜尋結果精確跳轉)
-        const moduleMap = {
-            'PNDV': 'module-1',
-            'PNDV_AR': 'module-1',
-            'AR 生命週期': 'module-1',
-            '警報狀態機': 'module-1',
-            'TSKMA': 'module-2',
-            '任務管理': 'module-2',
-            'GDMA': 'module-3',
-            'DMA 控制': 'module-3',
-            'EVMA': 'module-4',
-            '事件管理': 'module-4',
-            'ACP_RTA': 'module-5',
-            'RTA 協議': 'module-5',
-            'CM_DCP': 'module-6',
-            '發現協議': 'module-6',
-            'EDDP': 'module-7',
-            '數據路徑': 'module-7',
-            'ACP_LL': 'module-8',
-            '低層協議': 'module-8',
-            'PROFIdrive': 'module-9',
-            '應用層': 'module-9',
-            'App Common': 'module-10',
-            '應用通用': 'module-10',
-            'PN-PB': 'module-11',
-            '協議核心': 'module-11',
-            'IOM': 'module-12',
-            'IO Manager': 'module-12'
-        };
 
-        function scrollToSection(file, title) {
-            let targetId = null;
-            
-            // 1. 嘗試從 title 或 file 中匹配模組名稱
-            const searchTitle = title.toUpperCase();
-            const searchFile = file.toUpperCase();
-            
-            for (const [key, id] of Object.entries(moduleMap)) {
-                if (searchTitle.includes(key.toUpperCase()) || searchFile.includes(key.toUpperCase())) {
-                    targetId = id;
-                    break;
-                }
-            }
-            
-            // 2. 如果沒有匹配，預設跳轉到 code-deep-dive
-            if (!targetId) {
+// 點擊搜尋結果後直接跳轉到對應的 ID
+        window.scrollToSection = function(targetId) {
+            // 1. 如果沒有目標ID，預設回到程式深度剖析區塊
+            if (!targetId || targetId === 'undefined') {
                 targetId = 'code-deep-dive';
-                console.warn(`No specific module found for "${title}", defaulting to code-deep-dive`);
             }
             
-            // 3. 滾動到目標元素
+            // 2. 找到目標元素並平滑滾動
             const target = document.getElementById(targetId);
             if (target) {
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // 往上偏移一點點，避免被頂部的導覽列或邊界卡住
+                const offset = 20; 
+                const elementPosition = target.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - offset;
+                
+                window.scrollTo({
+                    top: offsetPosition,
+                    behavior: "smooth"
+                });
             } else {
-                console.error(`Target element #${targetId} not found!`);
-                // 如果找不到，嘗試跳轉到 code-deep-dive
-                const fallback = document.getElementById('code-deep-dive');
-                if (fallback) fallback.scrollIntoView({ behavior: 'smooth' });
+                console.warn(`Target element #${targetId} not found!`);
             }
             
-            // 4. 關閉搜尋下拉選單
+            // 3. 關閉搜尋下拉選單並清空輸入框
             searchResultsInline.style.display = 'none';
             searchInput.value = '';
-        }
-
+        };
         // Mermaid zoom functionality
+// =========================================
+        // Mermaid 縮放與拖曳功能 (自動注入 UI 版)
+        // =========================================
         const mermaidZoomState = {};
 
         function initMermaidZoom() {
-            document.querySelectorAll('.mermaid-wrapper').forEach(wrapper => {
+            document.querySelectorAll('.mermaid-wrapper').forEach((wrapper, index) => {
+                // 確保每個 wrapper 都有唯一的 ID
+                if (!wrapper.id) wrapper.id = 'mermaid-wrapper-' + index;
                 const id = wrapper.id;
-                mermaidZoomState[id] = { scale: 1, offsetX: 0, offsetY: 0 };
-                
+                mermaidZoomState[id] = { scale: 1.5, offsetX: 0, offsetY: 0 };
+                // mermaid 預設大小
+                // 動態注入放大縮小按鈕與比例顯示，你就不必在 HTML 裡手動加了！
+                const controlsHtml = `
+                    <div class="mermaid-controls">
+                        <button onclick="zoomMermaid('${id}', 0.2)" title="放大">+</button>
+                        <button onclick="zoomMermaid('${id}', -0.2)" title="縮小">-</button>
+                        <button onclick="resetMermaid('${id}')" title="重設">↺</button>
+                    </div>
+                    <div class="mermaid-scale-display">150%</div>
+                `;
+                wrapper.insertAdjacentHTML('beforeend', controlsHtml);
+
                 const mermaidContainer = wrapper.querySelector('.mermaid-container');
                 const mermaid = mermaidContainer.querySelector('.mermaid');
                 if (!mermaidContainer || !mermaid) return;
-                
-                // Mouse wheel zoom
+
+                mermaid.style.transform = `translate(0px, 0px) scale(1.5)`;
+                // 1. 滑鼠滾輪縮放
                 wrapper.addEventListener('wheel', (e) => {
                     e.preventDefault();
                     const delta = e.deltaY > 0 ? -0.1 : 0.1;
                     zoomMermaid(id, delta);
                 });
-                
-                // Drag to pan
+
+                // 2. 滑鼠拖曳平移 (Pan)
                 let isDragging = false;
-                let startX, startY, startLeft, startTop;
-                
+                let startX, startY;
+
                 mermaid.addEventListener('mousedown', (e) => {
                     isDragging = true;
-                    startX = e.clientX;
-                    startY = e.clientY;
-                    const rect = mermaid.getBoundingClientRect();
-                    const containerRect = mermaidContainer.getBoundingClientRect();
-                    startLeft = (rect.left - containerRect.left) / mermaidZoomState[id].scale;
-                    startTop = (rect.top - containerRect.top) / mermaidZoomState[id].scale;
+                    // 紀錄滑鼠點擊位置與目前偏移量的差值
+                    startX = e.clientX - mermaidZoomState[id].offsetX;
+                    startY = e.clientY - mermaidZoomState[id].offsetY;
                     mermaid.style.cursor = 'grabbing';
                     e.preventDefault();
                 });
-                
+
                 document.addEventListener('mousemove', (e) => {
                     if (!isDragging) return;
-                    const scale = mermaidZoomState[id].scale;
-                    const dx = (e.clientX - startX) / scale;
-                    const dy = (e.clientY - startY) / scale;
-                    mermaid.style.transform = `scale(${scale}) translate(${startLeft + dx}px, ${startTop + dy}px)`;
+                    // 更新平移偏移量
+                    mermaidZoomState[id].offsetX = e.clientX - startX;
+                    mermaidZoomState[id].offsetY = e.clientY - startY;
+                    updateMermaidTransform(id);
                 });
-                
+
                 document.addEventListener('mouseup', () => {
                     if (isDragging) {
                         isDragging = false;
@@ -2935,60 +2763,67 @@ sequenceDiagram
             });
         }
 
-        function zoomMermaid(id, delta) {
+        // 共用的 Transform 更新函數
+        function updateMermaidTransform(id) {
             const wrapper = document.getElementById(id);
-            const mermaidContainer = wrapper.querySelector('.mermaid-container');
-            const mermaid = mermaidContainer.querySelector('.mermaid');
+            const mermaid = wrapper.querySelector('.mermaid');
+            const state = mermaidZoomState[id];
+            if (mermaid) {
+                // 同時套用位移與縮放
+                mermaid.style.transform = `translate(${state.offsetX}px, ${state.offsetY}px) scale(${state.scale})`;
+            }
+        }
+
+        // 放大縮小核心函數 (供按鈕與滾輪呼叫)
+        window.zoomMermaid = function(id, delta) {
+            const wrapper = document.getElementById(id);
             const scaleDisplay = wrapper.querySelector('.mermaid-scale-display');
-            
-            if (!mermaid || !scaleDisplay) return;
+            if (!scaleDisplay) return;
             
             const state = mermaidZoomState[id];
-            const newScale = Math.max(0.3, Math.min(3, state.scale + delta));
-            state.scale = newScale;
-            
-            const currentTransform = mermaid.style.transform;
-            const match = currentTransform.match(/translate\(([^,]+),\s*([^)]+)\)/);
-            const offsetX = match ? match[1] : '0px';
-            const offsetY = match ? match[2] : '0px';
-            
-            mermaid.style.transform = `scale(${newScale}) translate(${offsetX}, ${offsetY})`;
-            scaleDisplay.textContent = Math.round(newScale * 100) + '%';
-        }
+            // 限制縮放比例在 30% 到 400% 之間
+            state.scale = Math.max(0.3, Math.min(4, state.scale + delta));
+            updateMermaidTransform(id);
+            scaleDisplay.textContent = Math.round(state.scale * 100) + '%';
+        };
 
-        function resetMermaid(id) {
+        // 重設視角函數
+        window.resetMermaid = function(id) {
             const wrapper = document.getElementById(id);
-            const mermaidContainer = wrapper.querySelector('.mermaid-container');
-            const mermaid = mermaidContainer.querySelector('.mermaid');
             const scaleDisplay = wrapper.querySelector('.mermaid-scale-display');
+            if (!scaleDisplay) return;
             
-            if (!mermaid || !scaleDisplay) return;
-            
-            mermaidZoomState[id].scale = 1;
-            mermaidZoomState[id].offsetX = 0;
-            mermaidZoomState[id].offsetY = 0;
-            mermaid.style.transform = 'scale(1) translate(0px, 0px)';
-            scaleDisplay.textContent = '100%';
-        }
+            const state = mermaidZoomState[id];
+            state.scale = 1.5;
+            state.offsetX = 0;
+            state.offsetY = 0;
+            updateMermaidTransform(id);
+            scaleDisplay.textContent = '150%';
+        };
 
-        // Initialize after page load
+        // 初始化所有事件
         window.addEventListener('load', () => {
+            // 延遲一點點時間等待字體與版面穩定
             setTimeout(() => {
-                initMermaidZoom();
-                // Re-render mermaid diagrams
-                document.querySelectorAll('.mermaid').forEach(el => {
-                    mermaid.render('mermaid-' + Math.random(), el.textContent).then(({svg}) => {
+                // 1. 修復的 Mermaid 渲染邏輯 (把 Math.random 換成了 index)
+                document.querySelectorAll('.mermaid').forEach((el, index) => {
+                    mermaid.render('mermaid-chart-id-' + index, el.textContent).then(({svg}) => {
                         el.innerHTML = svg;
                     }).catch(err => {
                         console.error('Mermaid render error:', err);
                     });
                 });
+
+                // 2. 延遲綁定縮放功能，確保 SVG 已經渲染完成
+                setTimeout(initMermaidZoom, 300);
             }, 100);
+            
+            // 下方保留你原本的 Search 與 ScrollSpy 邏輯...
             
             // Close dropdown when clicking outside
             document.addEventListener('click', (e) => {
                 const searchContainer = document.querySelector('.search-container');
-                if (searchContainer AndAnd !searchContainer.contains(e.target)) {
+                if (searchContainer && !searchContainer.contains(e.target)) {
                     searchResultsInline.style.display = 'none';
                 }
             });
@@ -3011,107 +2846,52 @@ sequenceDiagram
             
             // Scroll Spy - 嚴謹版：手動指定每個 Section 的監聽範圍
             const navItems = document.querySelectorAll('#sidebar .nav-item');
-            
-            // 定義每個 Section 的監聽配置
-            const scrollSpyConfig = [
-                {
-                    sectionId: 'modules',
-                    navSelector: '#sidebar .nav-item[href="#modules"]',
-                    // 監聽 #modules 內部的所有 .card (Module Grid 和 Table)
-                    targetSelector: '#modules .card'
-                },
-                {
-                    sectionId: 'code-deep-dive',
-                    navSelector: '#sidebar .nav-item[href="#code-deep-dive"]',
-                    // 監聽 #code-deep-dive 內部的所有 .card (Module 1-12)
-                    targetSelector: '#code-deep-dive .card'
-                },
-                {
-                    sectionId: 'data-flow',
-                    navSelector: '#sidebar .nav-item[href="#data-flow"]',
-                    // 監聽 #data-flow 內部的所有 .card 和 .mermaid-wrapper (圖表區域)
-                    targetSelector: '#data-flow .card, #data-flow .mermaid-wrapper'
-                }
-            ];
+            const scrollSpySections = [
+                document.getElementById('modules'),
+                document.getElementById('code-deep-dive'),
+                document.getElementById('data-flow')
+            ].filter(Boolean);
 
-            console.log('=== Scroll Spy Configuration ===');
-            const allTargets = [];
+            function setActiveNav(sectionId) {
+                navItems.forEach(item => {
+                    item.classList.toggle('active', item.getAttribute('href') === `#${sectionId}`);
+                });
+            }
 
-            scrollSpyConfig.forEach(config => {
-                const targets = document.querySelectorAll(config.targetSelector);
-                console.log(`Section: ${config.sectionId}, Targets found: ${targets.length}`);
-                config.targets = Array.from(targets);
-                allTargets.push(...config.targets);
-                
-                // 驗證導航連結是否存在
-                const navLink = document.querySelector(config.navSelector);
-                if (!navLink) {
-                    console.error(`ERROR: Navigation link for ${config.sectionId} not found!`);
-                }
-            });
-            console.log(`Total elements to observe: ${allTargets.length}`);
-            console.log('==============================');
+            function updateScrollSpy() {
+                if (!scrollSpySections.length) return;
 
-            const observerOptions = {
-                root: null,
-                rootMargin: '0px 0px -40% 0px', // 當元素進入視口 60% 時觸發
-                threshold: [0, 0.01, 0.1, 0.25, 0.5, 0.75, 1.0]
-            };
+                // 以視窗上方約 30% 的位置作為「目前閱讀位置」判定線。
+                // 選擇最後一個已經通過判定線的 Section，因此在長 Section 內不會因卡片切換而閃爍。
+                const spyLine = window.innerHeight * 0.30;
+                let activeSection = scrollSpySections[0];
 
-            const observer = new IntersectionObserver((entries) => {
-                // 1. 過濾出所有可見度 > 0.01 的入口
-                const visibleEntries = entries
-                    .filter(entry => entry.isIntersecting AndAnd entry.intersectionRatio >= 0.01)
-                    .sort((a, b) => b.intersectionRatio - a.intersectionRatio); // 按可見度降序
-
-                if (visibleEntries.length === 0) return;
-
-                // 2. 取得可見度最高的元素，並透過 ID 反推它屬於哪個 Section
-                const topEntry = visibleEntries[0];
-                const targetElement = topEntry.target;
-                
-                // 嚴謹檢查：手動比對元素是否屬於我們定義的三個 Section
-                let activeSectionId = null;
-                
-                if (targetElement.closest('#modules')) {
-                    activeSectionId = 'modules';
-                } else if (targetElement.closest('#code-deep-dive')) {
-                    activeSectionId = 'code-deep-dive';
-                } else if (targetElement.closest('#data-flow')) {
-                    activeSectionId = 'data-flow';
-                }
-
-                if (!activeSectionId) {
-                    console.warn('Unknown section detected for element:', targetElement);
-                    return;
-                }
-
-                console.log(`[Scroll Spy] Active: ${activeSectionId} (Ratio: ${topEntry.intersectionRatio.toFixed(2)})`);
-
-                // 3. 更新導航欄狀態
-                navItems.forEach(item => item.classList.remove('active'));
-                
-                const activeNavLink = document.querySelector(`#sidebar .nav-item[href="#${activeSectionId}"]`);
-                if (activeNavLink) {
-                    activeNavLink.classList.add('active');
-                    
-                    // 自動滾動側邊欄以顯示當前激活項
-                    const sidebar = document.getElementById('sidebar');
-                    const itemTop = activeNavLink.offsetTop;
-                    const navHeight = sidebar.clientHeight;
-                    const navScrollTop = sidebar.scrollTop;
-
-                    if (itemTop < navScrollTop || itemTop > navScrollTop + navHeight - 60) {
-                        sidebar.scrollTo({
-                            top: itemTop - 30,
-                            behavior: 'smooth'
-                        });
+                for (const section of scrollSpySections) {
+                    if (section.getBoundingClientRect().top <= spyLine) {
+                        activeSection = section;
+                    } else {
+                        break;
                     }
                 }
-            }, observerOptions);
 
-            // 4. 開始監聽所有定義好的目標元素
-            allTargets.forEach(el => observer.observe(el));
+                setActiveNav(activeSection.id);
+            }
+
+            let scrollSpyTicking = false;
+            function requestScrollSpyUpdate() {
+                if (scrollSpyTicking) return;
+                scrollSpyTicking = true;
+                requestAnimationFrame(() => {
+                    updateScrollSpy();
+                    scrollSpyTicking = false;
+                });
+            }
+
+            window.addEventListener('scroll', requestScrollSpyUpdate, { passive: true });
+            window.addEventListener('resize', requestScrollSpyUpdate);
+
+            // 初始化一次，確保重新整理或從網址 hash 進入時高亮正確。
+            updateScrollSpy();
         });
     </script>
 </body>
