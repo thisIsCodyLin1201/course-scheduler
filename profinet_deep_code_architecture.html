@@ -655,33 +655,24 @@
             <!-- Module 1: PNDV -->
             <div class="card" id="module-1">
                 <h3>1. PNDV: 設備視角與 AR 管理</h3>
-                <div class="file-path">src/ext/EK52/pn_ioddevkits/src/source/pndv/src/pndv_ar.c, src/ext/EK52/pn_ioddevkits/src/source/pndv/src/pndv_al.c</div>
-                <p><strong>核心邏輯：</strong>PNDV (Device View) 管理 PROFINET 設備視角、AR (Application Relation) 生命週期、警報處理與配置數據。核心結構體 <code>PNDV_DATA_T</code> 位於共享記憶體。</p>
+                <div class="file-path">src/ext/EK52/pn_ioddevkits/src/source/pndv/src/pndv_ar.c (行 84-103, 146-168)</div>
+                <p><strong>核心邏輯：</strong>PNDV 管理 PROFINET AR 生命週期。當控制器發起連接請求時，PNDV 需執行「資源查找 → 資料儲存 → IOC 分配 → 狀態機轉換」四步流程。</p>
                 
-                <h4>關鍵代碼片段：AR 狀態機初始化 (pndv_ar_init)</h4>
+                <h4>關鍵代碼片段：AR 連接核心流程 (pndv_ar_cm_connect_ind)</h4>
                 <div class="code-block">
-<span class="code-line"><span class="type">LSA_VOID</span> <span class="func">pndv_ar_init</span>(<span class="type">PNDV_AR_PTR</span> ar)</span>
-<span class="code-line">{</span>
-<span class="code-line">    ar->state = PNDV_AR_ST_IDLE;</span>
-<span class="code-line">    ar->ar_type = PNDV_AR_TYPE_CP;</span>
-<span class="code-line">    ar->connection_id = 0;</span>
-<span class="code-line">    </span>
-<span class="code-line">    <span class="comment">// 初始化 AR 參數</span></span>
-<span class="code-line">    ar->param.block_length = PNDV_AR_PARAM_BLOCK_LEN;</span>
-<span class="code-line">    ar->param.block_type = PNDV_AR_PARAM_BLOCK;</span>
-<span class="code-line">    </span>
-<span class="code-line">    <span class="comment">// 初始化警報隊列</span></span>
-<span class="code-line">    AcpListInitialize(Andar->alarm_queue);</span>
-<span class="code-line">}</span>
+<span class="code-line">    ret_val = pndv_ar_tool_connect_ind_find_ar_idx(&ar_idx, event_ptr);  <span class="comment">// [1] 尋找現有 AR 或分配新資源（核心資源管理）</span></span><span class="code-line">    pndv_ar_tool_connect_ind_store_ar_data(ar_idx, event_ptr);  <span class="comment">// [2] 儲存 AR 關鍵資料（UUID、Session Key）</span></span><span class="code-line">    pndv_data.ar[ar_idx].con_ind_rqb_ptr = rqb_ptr;  <span class="comment">// [3] 保存請求指針，用於後續回應</span></span><span class="code-line">    if ( pndv_data.cfg.peri_cfg.sm_state == PNDV_SM_PERIBUS_STATE_UNKNOWN )  <span class="comment">// [4] 若設備狀態未知，拒絕連接</span></span><span class="code-line">    if (ret_val == PNDV_CONNECT_IND_RET_OK)</span><span class="code-line">        ret_val = pndv_ar_tool_connect_ind_handle_iocr(ar_idx, pndv_data.ar[ar_idx].ar_set_nr, pndv_data.ar[ar_idx].session_key, event_ptr);  <span class="comment">// [5] 處理 IOC 資源分配（輸入/輸出緩衝區）</span></span><span class="code-line">        if (ret_val == PNDV_CONNECT_IND_RET_OK)</span><span class="code-line">            is_io_memory_allocated = PNIO_TRUE;  <span class="comment">// [6] 標記 IOC 記憶體已分配</span></span><span class="code-line">    switch (ret_val)</span><span class="code-line">        case PNDV_CONNECT_IND_RET_OK:</span><span class="code-line">            pndv_ar_sm(ar_idx, PNDV_AR_SM_EVENT_CONNECT_IND_OK_DONE);  <span class="comment">// [7] 連接成功，觸發狀態機進入下一階段</span></span><span class="code-line">        case PNDV_CONNECT_IND_RET_ABORT:</span><span class="code-line">                PNDV_FREE_IOCR_MEMORY(ar_idx);  <span class="comment">// [8] 連接失敗，釋放已分配的 IOC 記憶體</span></span><span class="code-line">            pndv_ar_sm(ar_idx, PNDV_AR_SM_EVENT_CONNECT_IND_ERROR_DONE);  <span class="comment">// [9] 連接失敗，觸發錯誤狀態機</span></span>
                 </div>
                 
-                <h4>核心功能</h4>
+                <h4>設計哲學與關鍵點</h4>
                 <div class="code-block">
-<span class="code-line">1. AR 生命週期管理 (建立、連接、數據交換、拆除)</span>
-<span class="code-line">2. 設備視角數據維護 (PNDV_DATA_T)</span>
-<span class="code-line">3. 警報發送與確認機制</span>
-<span class="code-line">4. 配置數據讀寫 (GET/SET)</span>
+<span class="code-line">1. <strong>資源隔離</strong>：先分配 IOC 記憶體，失敗時立即釋放，避免洩漏。</span>
+<span class="code-line">2. <strong>狀態驅動</strong>：所有邏輯最終透過 <code>pndv_ar_sm()</code> 統一管理狀態轉換。</span>
+<span class="code-line">3. <strong>冗餘支援</strong>：在 <code>handle_iocr</code> 中處理 <code>ar_set_nr</code>，支援系統冗餘（SR）。</span>
+<span class="code-line">4. <strong>錯誤處理</strong>：若任一階段失敗，立即回滾（釋放記憶體 + 觸發錯誤狀態機）。</span>
                 </div>
+</div>
+</div>
+</div>
             </div>
 
             <div class="card" id="module-2">
@@ -1570,78 +1561,25 @@
             </div>
 
             <div class="card" id="module-11">
-                <h3>11. PN-PB Core (協議核心)</h3>
-                <div class="file-path">src/ext/EK52/pn_ioddevkits/src/application/App1_STANDARD/usriod_main.c</div>
-                <p><strong>核心邏輯：</strong>PN-PB Core (Protocol Network - Protocol Base) 是 EK52 應用層的核心，實現 PROFINET 設備的主程式邏輯，包括設備啟動、模組配置、數據交換和應用層回調。</p>
+                <h3>11. PN-PB: 協議核心與應用層</h3>
+                <div class="file-path">src/ext/EK52/pn_ioddevkits/src/application/App1_STANDARD/usriod_main.c (行 1381-1425)</div>
+                <p><strong>核心邏輯：</strong>`PnUsr_cbf_IoDatXch` 是週期性數據交換函式，由 PROFINET 棧週期調用。</p>
                 
-                <h4>關鍵代碼片段：應用主程式 (MainAppl)</h4>
+                <h4>關鍵代碼片段：週期數據交換 (PnUsr_cbf_IoDatXch)</h4>
+                <h4>關鍵代碼片段：週期數據交換 (PnUsr_cbf_IoDatXch)</h4>
                 <div class="code-block">
-<span class="code-line"><span class="type">void</span> <span class="func">MainAppl</span>(<span class="type">void</span>) {</span>
-<span class="code-line">    <span class="type">PNIO_BOOL</span> ConsoleProtection = PNIO_TRUE;</span>
-<span class="code-line">    <span class="type">PNIO_UINT32</span> Status = PNIO_OK;</span>
-<span class="code-line">    <span class="type">PNIO_UINT32</span> exitAppl = PNIO_FALSE;</span>
-<span class="code-line">    <span class="type">PNIO_BOOL</span> isDeviceRunning = PNIO_FALSE;</span>
-<span class="code-line">    </span>
-<span class="code-line">    <span class="comment">// 1. 設置設備參數</span></span>
-<span class="code-line">    PnUsrDev.VendorId = IOD_CFG_VENDOR_ID;</span>
-<span class="code-line">    PnUsrDev.DeviceId = IOD_CFG_DEVICE_ID;</span>
-<span class="code-line">    PnUsrDev.MaxNumOfSubslots = IOD_CFG_NUMOF_SUBSLOTS;</span>
-<span class="code-line">    PnUsrDev.pDevType = (<span class="type">PNIO_INT8</span>*)IOD_CFG_DEVICE_TYPE;</span>
-<span class="code-line">    </span>
-<span class="code-line">    <span class="comment">// 2. 啟動 PN 棧：設置設備並插入所有 IO 模組</span></span>
-<span class="code-line">    Status = PnUsr_DeviceSetup(AndPnUsrDev,</span>
-<span class="code-line">                                AndIoSubList[0],</span>
-<span class="code-line">                                <span class="type">sizeof</span>(IoSubList) / <span class="type">sizeof</span>(IoSubList[0]),</span>
-<span class="code-line">                                AndIm0List[0],</span>
-<span class="code-line">                                <span class="type">sizeof</span>(Im0List) / <span class="type">sizeof</span>(Im0List[0]));</span>
-<span class="code-line">    </span>
-<span class="code-line">    <span class="comment">// 3. 檢查啟動結果</span></span>
-<span class="code-line">    <span class="keyword">if</span> (Status == PNIO_OK) {</span>
-<span class="code-line">        PNIO_ConsolePrintf(<span class="string">"SYSTEM STARTUP FINISHED, OK\n"</span>);</span>
-<span class="code-line">        isDeviceRunning = PNIO_TRUE;</span>
-<span class="code-line">    }</span>
-<span class="code-line">    <span class="keyword">else</span> {</span>
-<span class="code-line">        PNIO_ConsolePrintf(<span class="string">"##ERROR AT SYSTEM STARTUP\n"</span>);</span>
-<span class="code-line">    }</span>
-<span class="code-line">}</span>
+<span class="code-line">    <span class="type">PNUSR_CODE_FAST</span> <span class="type">PNIO_BOOL</span> <span class="func">PnUsr_cbf_IoDatXch</span> (<span class="keyword">void</span>)</span><span class="code-line">    {</span><span class="code-line">        <span class="keyword">volatile</span> <span class="type">PNIO_UINT32</span> Status;</span><span class="code-line">         <span class="comment"> *  read output data from PNIO controller</span></span><span class="code-line">        Status = <span class="func">PNIO_initiate_data_read</span>  (<span class="const">PNIO_SINGLE_DEVICE_HNDL</span>);                     <span class="comment"> output data</span>  <span class="comment">/* [1] 讀取輸出數據 */</span></span><span class="code-line">        LastRemoteApduStatus = <span class="func">PNIO_get_last_apdu_status</span> (<span class="const">PNIO_SINGLE_DEVICE_HNDL</span>, 1);   <span class="comment"> read last APDU state from first AR</span>  <span class="comment">/* [2] 檢查 APDU 狀態 */</span></span><span class="code-line">        <span class="keyword">switch</span> (Status)</span><span class="code-line">        {</span><span class="code-line">	        <span class="keyword">case</span> <span class="type">PNIO_OK</span>:</span><span class="code-line">		         break;</span><span class="code-line">	        <span class="keyword">case</span> <span class="type">PNIO_NOT_OK</span>:</span><span class="code-line">		         break;</span><span class="code-line">	        <span class="keyword">default</span>:</span><span class="code-line">		         <span class="func">PNIO_ConsolePrintf</span> ("Error 0x%x at <span class="func">PNIO_initiate_data_read</span>()\n", Status);  <span class="comment">/* [1] 讀取輸出數據 */</span></span><span class="code-line">		         break;</span><span class="code-line">        }</span><span class="code-line">         <span class="comment"> *  implement user software here</span></span><span class="code-line">         <span class="comment"> *  (e.g. write physical outputs)</span></span><span class="code-line">         <span class="comment"> *  send input data to PNIO controller</span></span><span class="code-line">        <span class="keyword">if</span> (Status != <span class="type">PNIO_NOT_OK</span>)</span><span class="code-line">            Status = <span class="func">PNIO_initiate_data_write</span> (<span class="const">PNIO_SINGLE_DEVICE_HNDL</span>);         <span class="comment"> input data</span>  <span class="comment">/* [3] 寫入輸入數據 */</span></span><span class="code-line">        <span class="keyword">switch</span> (Status)</span><span class="code-line">        {</span><span class="code-line">	        <span class="keyword">case</span> <span class="type">PNIO_OK</span>:</span><span class="code-line">		         break;</span><span class="code-line">	        <span class="keyword">case</span> <span class="type">PNIO_NOT_OK</span>:</span><span class="code-line">		         break;</span><span class="code-line">	        <span class="keyword">default</span>:</span><span class="code-line">		         <span class="func">PNIO_ConsolePrintf</span> ("Error 0x%x at <span class="func">PNIO_initiate_data_write</span>()\n", Status);  <span class="comment">/* [3] 寫入輸入數據 */</span></span><span class="code-line">		         break;</span><span class="code-line">        }</span><span class="code-line">        <span class="keyword">return</span> (Status);  <span class="comment">/* [6] 返回結果 */</span></span><span class="code-line">    }</span>
                 </div>
                 
-                <h4>關鍵代碼片段：數據交換回調 (PnUsr_cbf_IoDatXch)</h4>
+                <h4>設計哲學</h4>
                 <div class="code-block">
-<span class="code-line"><span class="type">PNIO_BOOL</span> <span class="func">PnUsr_cbf_IoDatXch</span>(<span class="type">void</span>) {</span>
-<span class="code-line">    <span class="type">volatile PNIO_UINT32</span> Status;</span>
-<span class="code-line">    </span>
-<span class="code-line">    <span class="comment">// 1. 從控制器讀取輸出數據</span></span>
-<span class="code-line">    Status = PNIO_initiate_data_read(PNIO_SINGLE_DEVICE_HNDL);</span>
-<span class="code-line">    LastRemoteApduStatus = PNIO_get_last_apdu_status(PNIO_SINGLE_DEVICE_HNDL, 1);</span>
-<span class="code-line">    </span>
-<span class="code-line">    <span class="keyword">switch</span> (Status) {</span>
-<span class="code-line">        <span class="keyword">case</span> PNIO_OK:</span>
-<span class="code-line">            <span class="keyword">break</span>;</span>
-<span class="code-line">        <span class="keyword">case</span> PNIO_NOT_OK:</span>
-<span class="code-line">            <span class="keyword">break</span>;</span>
-<span class="code-line">        <span class="keyword">default</span>:</span>
-<span class="code-line">            PNIO_ConsolePrintf(<span class="string">"Error 0x%x at PNIO_initiate_data_read()\n"</span>, Status);</span>
-<span class="code-line">    }</span>
-<span class="code-line">    </span>
-<span class="code-line">    <span class="comment">// 2. 實現用戶軟件（例如：寫入物理輸出）</span></span>
-<span class="code-line">    </span>
-<span class="code-line">    <span class="comment">// 3. 將輸入數據寫回控制器</span></span>
-<span class="code-line">    <span class="keyword">if</span> (Status != PNIO_NOT_OK)</span>
-<span class="code-line">        Status = PNIO_initiate_data_write(PNIO_SINGLE_DEVICE_HNDL);</span>
-<span class="code-line">    </span>
-<span class="code-line">    <span class="keyword">return</span> (Status);</span>
-<span class="code-line">}</span>
+<span class="code-line">1. 週期性調用：IRT 時鐘觸發。</span>
+<span class="code-line">2. 雙向數據流：Read 輸出 → Write 輸入。</span>
+<span class="code-line">3. 錯誤處理：記錄錯誤但不中斷週期。</span>
                 </div>
-                
-                <h4>核心功能</h4>
-                <div class="code-block">
-<span class="code-line">MainAppl(): 應用主程式，啟動設備和 PN 棧</span>
-<span class="code-line">PnUsr_DeviceSetup(): 設置設備配置和插入模組</span>
-<span class="code-line">PnUsr_cbf_IoDatXch(): 數據交換回調函式</span>
-<span class="code-line">PNIO_initiate_data_read(): 讀取輸出數據</span>
-<span class="code-line">PNIO_initiate_data_write(): 寫入輸入數據</span>
-                </div>
+
+</div>
+</div>
             </div>
 
             <div class="card" id="module-12">
@@ -1693,73 +1631,30 @@
                 </div>
             </div>
 
+            
             <div class="card" id="module-13">
-                <h3>13. PnUsr: 應用層共享記憶體 API</h3>
-                <div class="file-path">src/pns/app/PnUsr_SharedMemory.c</div>
-                <p><strong>核心邏輯：</strong>PnUsr 模組提供應用層與 PROFINET 協議棧之間的共享記憶體介面，使用 FSP 的 R_SHARED_MEMORY 驅動進行核心間數據交換。</p>
+                <h3>13. PnUsr: 應用層共享記憶體介面</h3>
+                <div class="file-path">src/pns/app/PnUsr_SharedMemory.c (行 66-84, 101-124)</div>
+                <p><strong>核心邏輯：</strong>PnUsr 提供應用層與 PROFINET 棧之間的**共享記憶體介面**。支援三種模式：<code>Core2Core</code>（雙核通訊）、<code>SHOSTIF_REMOTE</code>（遠端模擬）、<code>SHOSTIF_HOST</code>（主機模式）。</p>
                 
-                <h4>關鍵代碼片段：共享記憶體讀取 (PNIO_SHM_Read)</h4>
+                <h4>關鍵代碼片段 1：共享記憶體讀取 (PNIO_SHM_Read)</h4>
                 <div class="code-block">
-<span class="code-line"><span class="type">LSA_UINT32</span> <span class="func">PNIO_SHM_Read</span>(<span class="type">LSA_UINT32</span> address, <span class="type">LSA_UINT32</span> length, <span class="type">LSA_UINT8</span>* p_dst)</span>
-<span class="code-line">{</span>
-<span class="code-line">    <span class="type">LSA_UINT32</span> retval = PNIO_OK;</span>
-<span class="code-line">#if IOD_INCLUDE_SHM_CORE2CORE</span>
-<span class="code-line">    <span class="type">fsp_err_t</span> fsp_err;</span>
-<span class="code-line">    fsp_err = <span class="func">R_SHARED_MEMORY_Read</span>(Andg_shared_memory0_ctrl, p_dst, address, length);</span>
-<span class="code-line">    <span class="keyword">if</span> (FSP_SUCCESS != fsp_err)</span>
-<span class="code-line">    {</span>
-<span class="code-line">        retval = PNIO_NOT_OK;</span>
-<span class="code-line">    }</span>
-<span class="code-line">#elif IOD_INCLUDE_SHM_SHOSTIF_REMOTE</span>
-<span class="code-line">    <span class="func">OsMemCpy</span>(p_dst, (<span class="type">PNIO_VOID</span>*)address, length);</span>
-<span class="code-line">#elif IOD_INCLUDE_SHM_SHOSTIF_HOST</span>
-<span class="code-line">    <span class="keyword">if</span> (<span class="keyword">false</span> == <span class="func">shost_host_read</span>(address, length))</span>
-<span class="code-line">    {</span>
-<span class="code-line">        <span class="keyword">return</span> PNIO_NOT_OK;</span>
-<span class="code-line">    }</span>
-<span class="code-line">    </span>
-<span class="code-line">    <span class="func">memcpy</span>(p_dst, (<span class="type">void</span> *)address, length);</span>
-<span class="code-line">#endif</span>
-<span class="code-line">    <span class="keyword">return</span> retval;</span>
-<span class="code-line">}</span>
+<span class="code-line"><span class="type">LSA_UINT32</span> PNIO_SHM_Read(<span class="type">LSA_UINT32</span> address, <span class="type">LSA_UINT32</span> length,<span class="type">LSA_UINT8</span>* p_dst)</span><span class="code-line">{</span><span class="code-line">	<span class="type">LSA_UINT32</span> retval = <span class="type">PNIO_OK</span>;</span><span class="code-line">#<span class="keyword">if</span> <span class="macro">IOD_INCLUDE_SHM_CORE2CORE</span></span><span class="code-line">	<span class="type">fsp_err_t</span> fsp_err;</span><span class="code-line">	fsp_err = <span class="func">R_SHARED_MEMORY_Read</span>(&amp;g_shared_memory0_ctrl, p_dst, address, length);  <span class="comment">/* [1] 調用 FSP 驅動 */</span></span><span class="code-line">	<span class="keyword">if</span>(<span class="type">FSP_SUCCESS</span> != fsp_err)  <span class="comment">/* 檢查狀態 */</span></span><span class="code-line">	{</span><span class="code-line">		retval = <span class="type">PNIO_NOT_OK</span>;</span><span class="code-line">	}</span><span class="code-line">#elif <span class="macro">IOD_INCLUDE_SHM_SHOSTIF_REMOTE</span></span><span class="code-line">	<span class="func">OsMemCpy</span>(p_dst, (PNIO_VOID*)address, length);  <span class="comment">/* [2] 遠端模式 */</span></span><span class="code-line">#elif <span class="macro">IOD_INCLUDE_SHM_SHOSTIF_HOST</span></span><span class="code-line">	<span class="keyword">if</span>(<span class="keyword">false</span> == <span class="func">shost_host_read</span>(address, length))  <span class="comment">/* [3] 主機讀取 */</span></span><span class="code-line">	{</span>
                 </div>
                 
-                <h4>關鍵代碼片段：共享記憶體寫入 (PNIO_SHM_Write)</h4>
+                <h4>關鍵代碼片段 2：共享記憶體寫入 (PNIO_SHM_Write)</h4>
                 <div class="code-block">
-<span class="code-line"><span class="type">LSA_UINT32</span> <span class="func">PNIO_SHM_Write</span>(<span class="type">LSA_UINT32</span> address, <span class="type">LSA_UINT32</span> length, <span class="type">LSA_UINT8</span>* p_src)</span>
-<span class="code-line">{</span>
-<span class="code-line">    <span class="type">LSA_UINT32</span> retval = PNIO_OK;</span>
-<span class="code-line">#if IOD_INCLUDE_SHM_CORE2CORE</span>
-<span class="code-line">    <span class="type">fsp_err_t</span> fsp_err;</span>
-<span class="code-line">    fsp_err = <span class="func">R_SHARED_MEMORY_Write</span>(Andg_shared_memory0_ctrl, p_src, address, length);</span>
-<span class="code-line">    <span class="keyword">if</span> (FSP_SUCCESS != fsp_err)</span>
-<span class="code-line">    {</span>
-<span class="code-line">        retval = PNIO_NOT_OK;</span>
-<span class="code-line">    }</span>
-<span class="code-line">#elif IOD_INCLUDE_SHM_SHOSTIF_REMOTE</span>
-<span class="code-line">    <span class="func">OsMemCpy</span>((<span class="type">PNIO_VOID</span>*)address, p_src, length);</span>
-<span class="code-line">#elif IOD_INCLUDE_SHM_SHOSTIF_HOST</span>
-<span class="code-line">    <span class="keyword">if</span> (<span class="keyword">false</span> == <span class="func">shost_host_read</span>(address, length))</span>
-<span class="code-line">    {</span>
-<span class="code-line">        <span class="keyword">return</span> PNIO_NOT_OK;</span>
-<span class="code-line">    }</span>
-<span class="code-line">    </span>
-<span class="code-line">    <span class="func">memcpy</span>((<span class="type">void</span> *)address, p_src, length);</span>
-<span class="code-line">    </span>
-<span class="code-line">    <span class="keyword">if</span> (<span class="keyword">false</span> == <span class="func">shost_host_write</span>(address, length))</span>
-<span class="code-line">    {</span>
-<span class="code-line">        <span class="keyword">return</span> PNIO_NOT_OK;</span>
-<span class="code-line">    }</span>
-<span class="code-line">#endif</span>
-<span class="code-line">    <span class="keyword">return</span> retval;</span>
-<span class="code-line">}</span>
+<span class="code-line"><span class="type">LSA_UINT32</span> PNIO_SHM_Write(<span class="type">LSA_UINT32</span> address, <span class="type">LSA_UINT32</span> length,<span class="type">LSA_UINT8</span>* p_src)</span><span class="code-line">{</span><span class="code-line">	<span class="type">LSA_UINT32</span> retval = <span class="type">PNIO_OK</span>;</span><span class="code-line">#<span class="keyword">if</span> <span class="macro">IOD_INCLUDE_SHM_CORE2CORE</span></span><span class="code-line">	<span class="type">fsp_err_t</span> fsp_err;</span><span class="code-line">	fsp_err = <span class="func">R_SHARED_MEMORY_Write</span>(&amp;g_shared_memory0_ctrl, p_src, address, length);  <span class="comment">/* [1] 調用 FSP 驅動 */</span></span><span class="code-line">	<span class="keyword">if</span>(<span class="type">FSP_SUCCESS</span> != fsp_err)  <span class="comment">/* 檢查狀態 */</span></span><span class="code-line">	{</span><span class="code-line">		retval = <span class="type">PNIO_NOT_OK</span>;</span><span class="code-line">	}</span><span class="code-line">#elif <span class="macro">IOD_INCLUDE_SHM_SHOSTIF_REMOTE</span></span><span class="code-line">	<span class="func">OsMemCpy</span>((PNIO_VOID*)address, p_src, length);  <span class="comment">/* [2] 遠端模式 */</span></span><span class="code-line">#elif <span class="macro">IOD_INCLUDE_SHM_SHOSTIF_HOST</span></span><span class="code-line">	<span class="keyword">if</span>(<span class="keyword">false</span> == <span class="func">shost_host_read</span>(address, length))  <span class="comment">/* [3] 主機讀取 */</span></span><span class="code-line">	{</span><span class="code-line">		<span class="keyword">return</span> <span class="type">PNIO_NOT_OK</span>;</span><span class="code-line">	}</span><span class="code-line">	<span class="func">memcpy</span>((<span class="keyword">void</span> *)address, p_src, length);</span><span class="code-line">	<span class="keyword">if</span>(<span class="keyword">false</span> == <span class="func">shost_host_write</span>(address, length))  <span class="comment">/* [5] 主機寫入 */</span></span><span class="code-line">	{</span>
                 </div>
 
-                <h4>關鍵檔案</h4>
+                
+                <h4>設計哲學與關鍵點</h4>
                 <div class="code-block">
-<span class="code-line">PnUsr_SharedMemory.c  <span class="comment">- 共享記憶體讀寫 (PNIO_SHM_Read/Write)</span></span>
-<span class="code-line">PnUsr_SharedMemory.h  <span class="comment">- 結構體定義 (pnusr_shared_memory_t)</span></span>
-<span class="code-line">rzt2_pns_rsk.c        <span class="comment">- RZ/T2 RSK 開發板特定實作</span></span>
+<span class="code-line">1. <strong>多模式支援</strong>：透過 <code>#if</code> 巨集切換不同硬體架構（雙核/單核/遠端）。</span>
+<span class="code-line">2. <strong>核心間通訊</strong>：<code>Core2Core</code> 模式使用 FSP <code>R_SHARED_MEMORY_*</code> 驅動，確保快取一致性。</span>
+<span class="code-line">3. <strong>錯誤處理</strong>：所有操作檢查返回狀態（<code>FSP_SUCCESS</code> / <code>shost_host_read</code>）。</span>
+<span class="code-line">4. <strong>抽象層</strong>：應用層只需呼叫 <code>PNIO_SHM_Read/Write</code>，無需關心底層實現。</span>
+<span class="code-line">5. <strong>快取管理</strong>：<code>.shared_noncache_buffer.profinet</code> 區段確保共享記憶體不被快取。</span>
                 </div>
             </div>
 
@@ -1820,7 +1715,7 @@
 
             <div class="card" id="module-15">
                 <h3>15. gPTP/RSync: IEEE 1588 精確時間同步</h3>
-                <div class="file-path">src/pns/RSync/ptp1as/gptp.c</div>
+                <div class="file-path">src/pns/RSync/ptp1as/gptp.c, bmc.c, RSync.c</div>
                 <p><strong>核心邏輯：</strong>實現 IEEE 1588 PTP (Precision Time Protocol)，使用 `struct gPTPd` 管理每個端口的狀態，包含 BMC 演算法自動選擇最佳時鐘源。</p>
                 
                 <h4>關鍵代碼片段：清除主站 MAC</h4>
