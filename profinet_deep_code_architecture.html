@@ -2077,7 +2077,6 @@ flowchart TD
                 
                 <div class="mermaid-container">
 <div class="mermaid">
-
 flowchart TD
     NetIn[網路封包] --> EDD[EDD 驅動]
     EDD --> ACP[acp_nrt_recv_indication]
@@ -2089,14 +2088,14 @@ flowchart TD
     Type -->|Low| LowQ[低優先級隊列]
     HighQ --> RTA[RTA 狀態機]
     LowQ --> RTA
-    RTA --> PNDV[PNDV_AR 處理]
+    RTA --> PNDV["PNDV_AR 處理<br/>(Device View & AR Mgr)"]
     PNDV --> App[應用層]
 </div>
                 </div>
             </div>
 
             <h3>3. 核心結構體關係</h3>
-            <div class="mermaid-wrapper" id="mermaid-3">
+            <div class="mermaid-wrapper" id="mermaid-3" data-scale="1">
                 
                 <div class="mermaid-container">
 <div class="mermaid">
@@ -2144,45 +2143,44 @@ classDiagram
                 
                 <div class="mermaid-container">
 <div class="mermaid">
-
 flowchart TD
     subgraph 初始化流程
-        Boot([系統啟動]) --> EDDP[EDDP_CoreDevSetupStateMachine]
-        EDDP --> TSKMA[TSKMA 任務初始化]
-        TSKMA --> GDMA[GDMA DMA 配置]
-        GDMA --> EVMA[EVMA 計時器註冊]
-        EVMA --> ACP_LL[ACP_LL RQB 池建立]
-        ACP_LL --> CM_DCP[CM_DCP 設備註冊]
-        CM_DCP --> PNDV[PNDV AR 初始化]
+        Boot([系統啟動]) --> EDDP["EDDP_CoreDevSetupStateMachine<br/>(Data Path & K32)"]
+        EDDP --> TSKMA["TSKMA 任務初始化<br/>(Task Mgr)"]
+        TSKMA --> GDMA["GDMA DMA 配置<br/>(DMA Controller)"]
+        GDMA --> EVMA["EVMA 計時器註冊<br/>(Event Mgr)"]
+        EVMA --> ACP_LL["ACP_LL RQB 池建立<br/>(Lower Layer Access)"]
+        ACP_LL --> CM_DCP["CM_DCP 設備註冊<br/>(Discovery Protocol)"]
+        CM_DCP --> PNDV["PNDV AR 初始化<br/>(Device View & AR Mgr)"]
     end
 
     subgraph 資料接收流程
-        Packet[網路封包] --> EDD[EDD 驅動]
-        EDD --> ACP_NRT[acp_nrt_recv_indication]
+        Packet[網路封包] --> EDD_IN[EDD 驅動]
+        EDD_IN --> ACP_NRT[acp_nrt_recv_indication]
         ACP_NRT --> MAC{MAC 匹配？}
         MAC -->|No| Drop[丟棄]
         MAC -->|Yes| Parse[acp_rta_header_parse]
         Parse --> Type{FrameID 類型？}
-        Type -->|RT| RTA[ACP_RTA 狀態機]
-        Type -->|NRT| EDDP_NRT[EDDP 非實時處理]
-        RTA --> PNDV_PROC[PNDV_AR 處理]
+        Type -->|RT| RTA["ACP_RTA 狀態機<br/>(Real-time Protocol)"]
+        Type -->|NRT| EDDP_NRT["EDDP 非實時處理<br/>(Data Path & K32)"]
+        RTA --> PNDV_PROC["PNDV_AR 處理<br/>(Device View & AR Mgr)"]
         EDDP_NRT --> PNDV_PROC
         PNDV_PROC --> App[應用層]
     end
 
     subgraph 配置與監控
-        DCP_Req[DCP 請求] --> CM_DCP_PROC[CM_DCP 處理]
+        DCP_Req[DCP 請求] --> CM_DCP_PROC["CM_DCP 處理<br/>(Discovery Protocol)"]
         CM_DCP_PROC --> GET{GET/SET?}
         GET -->|GET| Read[讀取設備資訊]
         GET -->|SET| Write[寫入配置]
         Read --> Response[發送回應]
         Write --> Response
-        Response --> EDD[EDD 驅動]
+        Response --> EDD_OUT[EDD 驅動]
         
-        Timer[PNPLL 中斷] --> EVMA_ISR[EVMA 中斷服務]
+        Timer["PNPLL 中斷<br/>(Precision Network PLL)"] --> EVMA_ISR["EVMA 中斷服務<br/>(Event Mgr)"]
         EVMA_ISR --> Callback[調用回調函數]
         Callback --> GDMA_TRIG[觸發 DMA 轉移]
-        GDMA_TRIG --> EDD
+        GDMA_TRIG --> EDD_OUT
     end
 
     初始化流程 ==> 資料接收流程
@@ -2192,30 +2190,29 @@ flowchart TD
             </div>
 
             <h3>5. 模組依賴關係圖</h3>
-            <div class="mermaid-wrapper" id="mermaid-5">
+            <div class="mermaid-wrapper" id="mermaid-5" data-scale="0.8">
                 
                 <div class="mermaid-container">
 <div class="mermaid">
-
 graph LR
     subgraph 底層
-        ACP_LL[ACP_LL<br/>底層接口]
+        ACP_LL["ACP_LL<br/>底層接口<br/>(Lower Layer Access)"]
     end
 
     subgraph 硬體抽象
-        GDMA[GDMA<br/>DMA 控制]
-        EVMA[EVMA<br/>事件管理]
+        GDMA["GDMA<br/>DMA 控制<br/>(DMA Controller)"]
+        EVMA["EVMA<br/>事件管理<br/>(Event Mgr)"]
     end
 
     subgraph 協議棧
-        ACP_RTA[ACP_RTA<br/>RTA 協議]
-        CM_DCP[CM_DCP<br/>發現協議]
-        EDDP[EDDP<br/>數據路徑]
+        ACP_RTA["ACP_RTA<br/>RTA 協議<br/>(Real-time Protocol)"]
+        CM_DCP["CM_DCP<br/>發現協議<br/>(Discovery Protocol)"]
+        EDDP["EDDP<br/>數據路徑<br/>(Data Path & K32)"]
     end
 
     subgraph 應用層
-        PNDV[PNDV<br/>設備視角]
-        TSKMA[TSKMA<br/>任務管理]
+        PNDV["PNDV<br/>設備視角<br/>(Device View & AR Mgr)"]
+        TSKMA["TSKMA<br/>任務管理<br/>(Task Mgr)"]
     end
 
     ACP_LL --> GDMA
@@ -2301,10 +2298,10 @@ flowchart TD
 sequenceDiagram
     participant M as Master
     participant S as Stack
-    participant E as EDDP
+    participant E as EDDP (Data Path & K32)
     participant H as Hardware
     participant A as App
-    participant P as PNDV
+    participant P as PNDV (Device View & AR Mgr)
 
     M->>S: Send Data
     S->>H: Receive
@@ -2603,16 +2600,21 @@ sequenceDiagram
                 // 確保每個 wrapper 都有唯一的 ID
                 if (!wrapper.id) wrapper.id = 'mermaid-wrapper-' + index;
                 const id = wrapper.id;
-                mermaidZoomState[id] = { scale: 1.5, offsetX: 0, offsetY: 0 };
-                // mermaid 預設大小
-                // 動態注入放大縮小按鈕與比例顯示，你就不必在 HTML 裡手動加了！
+                
+                // 🌟 神奇魔法：讀取 HTML 上自訂的倍率，如果沒寫，就預設為 1.5 (150%)
+                const customScale = parseFloat(wrapper.getAttribute('data-scale')) || 1.5;
+
+                mermaidZoomState[id] = { scale: customScale, offsetX: 0, offsetY: 0 };
+                
+                // 動態注入按鈕 (文字也會自動跟著專屬倍率變！)
+                const displayPercent = Math.round(customScale * 100) + '%';
                 const controlsHtml = `
                     <div class="mermaid-controls">
                         <button onclick="zoomMermaid('${id}', 0.2)" title="放大">+</button>
                         <button onclick="zoomMermaid('${id}', -0.2)" title="縮小">-</button>
                         <button onclick="resetMermaid('${id}')" title="重設">↺</button>
                     </div>
-                    <div class="mermaid-scale-display">150%</div>
+                    <div class="mermaid-scale-display">${displayPercent}</div>
                 `;
                 wrapper.insertAdjacentHTML('beforeend', controlsHtml);
 
@@ -2620,7 +2622,9 @@ sequenceDiagram
                 const mermaid = mermaidContainer.querySelector('.mermaid');
                 if (!mermaidContainer || !mermaid) return;
 
-                mermaid.style.transform = `translate(0px, 0px) scale(1.5)`;
+                // 初始載入時，直接套用專屬倍率
+                mermaid.style.transform = `translate(0px, 0px) scale(${customScale})`;
+
                 // 1. 滑鼠滾輪縮放
                 wrapper.addEventListener('wheel', (e) => {
                     e.preventDefault();
@@ -2634,7 +2638,6 @@ sequenceDiagram
 
                 mermaid.addEventListener('mousedown', (e) => {
                     isDragging = true;
-                    // 紀錄滑鼠點擊位置與目前偏移量的差值
                     startX = e.clientX - mermaidZoomState[id].offsetX;
                     startY = e.clientY - mermaidZoomState[id].offsetY;
                     mermaid.style.cursor = 'grabbing';
@@ -2643,7 +2646,6 @@ sequenceDiagram
 
                 document.addEventListener('mousemove', (e) => {
                     if (!isDragging) return;
-                    // 更新平移偏移量
                     mermaidZoomState[id].offsetX = e.clientX - startX;
                     mermaidZoomState[id].offsetY = e.clientY - startY;
                     updateMermaidTransform(id);
@@ -2658,42 +2660,42 @@ sequenceDiagram
             });
         }
 
-        // 共用的 Transform 更新函數
+        // 共用的 Transform 更新函數 (不用改)
         function updateMermaidTransform(id) {
             const wrapper = document.getElementById(id);
             const mermaid = wrapper.querySelector('.mermaid');
             const state = mermaidZoomState[id];
             if (mermaid) {
-                // 同時套用位移與縮放
                 mermaid.style.transform = `translate(${state.offsetX}px, ${state.offsetY}px) scale(${state.scale})`;
             }
         }
 
-        // 放大縮小核心函數 (供按鈕與滾輪呼叫)
+        // 放大縮小核心函數 (不用改)
         window.zoomMermaid = function(id, delta) {
             const wrapper = document.getElementById(id);
             const scaleDisplay = wrapper.querySelector('.mermaid-scale-display');
             if (!scaleDisplay) return;
             
             const state = mermaidZoomState[id];
-            // 限制縮放比例在 30% 到 400% 之間
             state.scale = Math.max(0.3, Math.min(4, state.scale + delta));
             updateMermaidTransform(id);
             scaleDisplay.textContent = Math.round(state.scale * 100) + '%';
         };
 
-        // 重設視角函數
+        // 🌟 重設視角函數也升級：按下還原時，回到它專屬的倍率！
         window.resetMermaid = function(id) {
             const wrapper = document.getElementById(id);
             const scaleDisplay = wrapper.querySelector('.mermaid-scale-display');
             if (!scaleDisplay) return;
             
+            const customScale = parseFloat(wrapper.getAttribute('data-scale')) || 1.5;
+            
             const state = mermaidZoomState[id];
-            state.scale = 1.5;
+            state.scale = customScale;
             state.offsetX = 0;
             state.offsetY = 0;
             updateMermaidTransform(id);
-            scaleDisplay.textContent = '150%';
+            scaleDisplay.textContent = Math.round(customScale * 100) + '%';
         };
 
         // 初始化所有事件
